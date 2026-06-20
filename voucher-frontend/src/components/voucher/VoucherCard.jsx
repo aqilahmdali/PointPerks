@@ -77,7 +77,6 @@ const VoucherCard = ({ voucher }) => {
           className="p-button-sm"
           style={{ marginTop: 'auto' }}
           onClick={() => navigate(`/vouchers/${voucher._id}`)}
-          disabled={!voucher.isAvailable}
         />
       </div>
     </Card>

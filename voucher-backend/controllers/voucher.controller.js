@@ -39,8 +39,7 @@ const getVouchers = async (req, res) => {
       .populate('createdBy', 'name email')
       .sort({ [sortBy]: sortOrder })
       .skip(skip)
-      .limit(parseInt(limit))
-      .lean({ virtuals: true }),
+      .limit(parseInt(limit)),
     Voucher.countDocuments(filter),
   ]);
 
@@ -53,8 +52,7 @@ const getVouchers = async (req, res) => {
  */
 const getVoucher = async (req, res) => {
   const voucher = await Voucher.findById(req.params.id)
-    .populate('createdBy', 'name email')
-    .lean({ virtuals: true });
+    .populate('createdBy', 'name email');
 
   if (!voucher) return sendError(res, 'Voucher not found', 404);
 

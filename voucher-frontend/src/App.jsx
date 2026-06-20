@@ -30,6 +30,7 @@ import MyRedemptions from './pages/user/MyRedemptions';
 import PointsHistory from './pages/user/PointsHistory';
 import ReferralPage from './pages/user/ReferralPage';
 import PDFVoucherPage from './pages/user/PDFVoucherPage';
+import ProfilePage from './pages/user/ProfilePage';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -65,6 +66,7 @@ function App() {
               <Route path="/my-redemptions/:id/pdf" element={<PDFVoucherPage />} />
               <Route path="/points-history" element={<PointsHistory />} />
               <Route path="/referral" element={<ReferralPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
             </Route>
 
             {/* ── Admin Routes (admin role required) ────────────────── */}

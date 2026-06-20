@@ -140,8 +140,7 @@ const getMyRedemptions = async (req, res) => {
       .populate('voucher', 'title merchant category image discountType discountValue')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit))
-      .lean({ virtuals: true }),
+      .limit(parseInt(limit)),
     Redemption.countDocuments(filter),
   ]);
 
@@ -155,8 +154,7 @@ const getMyRedemptions = async (req, res) => {
 const getRedemption = async (req, res) => {
   const redemption = await Redemption.findById(req.params.id)
     .populate('voucher')
-    .populate('user', 'name email avatar')
-    .lean({ virtuals: true });
+    .populate('user', 'name email avatar');
 
   if (!redemption) return sendError(res, 'Redemption not found', 404);
 
@@ -254,8 +252,7 @@ const getAllRedemptions = async (req, res) => {
       .populate('voucher', 'title merchant category')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit))
-      .lean({ virtuals: true }),
+      .limit(parseInt(limit)),
     Redemption.countDocuments(filter),
   ]);
 
