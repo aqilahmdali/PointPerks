@@ -276,7 +276,42 @@ const markAsUsed = async (req, res) => {
   return sendSuccess(res, { redemption }, 'Redemption marked as used');
 };
 
+/**
+ * DELETE /api/redemptions/:id (admin)
+ */
+const deleteRedemption = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const redemption = await Redemption.findById(req.params.id).session(session);
+    if (!redemption) {
+      await session.abortTransaction();
+      return sendError(res, 'Redemption not found', 404);
+    }
+
+    if (redemption.status !== 'cancelled') {
+      await Voucher.updateOne(
+        { _id: redemption.voucher, redeemedCount: { $gt: 0 } },
+        { $inc: { redeemedCount: -1 } },
+        { session }
+      );
+    }
+
+    await Redemption.findByIdAndDelete(req.params.id).session(session);
+    await session.commitTransaction();
+
+    return sendSuccess(res, {}, 'Redemption deleted successfully');
+  } catch (err) {
+    await session.abortTransaction();
+    throw err;
+  } finally {
+    session.endSession();
+  }
+};
+
 module.exports = {
   redeemVoucher, getMyRedemptions, getRedemption,
   downloadRedemptionPDF, cancelRedemption, getAllRedemptions, markAsUsed,
+  deleteRedemption,
 };

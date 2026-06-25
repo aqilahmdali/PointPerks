@@ -49,7 +49,10 @@ export const categoryIcons = {
 
 // Download PDF blob from API response
 export const downloadPDF = (blobData, filename) => {
-  const url = window.URL.createObjectURL(new Blob([blobData]));
+  const pdfBlob = blobData instanceof Blob
+    ? blobData
+    : new Blob([blobData], { type: 'application/pdf' });
+  const url = window.URL.createObjectURL(pdfBlob);
   const link = document.createElement('a');
   link.href = url;
   link.setAttribute('download', filename || 'voucher.pdf');

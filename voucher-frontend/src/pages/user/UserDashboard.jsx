@@ -1,12 +1,101 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from 'primereact/button';
-import { Skeleton } from 'primereact/skeleton';
 import useAuth from '../../hooks/useAuth';
 import { voucherAPI, redemptionAPI } from '../../services/api';
-import VoucherCard from '../../components/voucher/VoucherCard';
-import StatCard from '../../components/common/StatCard';
-import EmptyState from '../../components/common/EmptyState';
+import { formatDiscount } from '../../utils/helpers';
+
+/* ── Design tokens ─────────────────────────────────────────────── */
+const C = {
+  primary: '#022448',
+  primaryContainer: '#1e3a5f',
+  brandGold: '#D4A017',
+  secondary: '#795900',
+  secondaryContainer: '#ffc641',
+  surface: '#f9f9f8',
+  surfaceLow: '#f4f4f3',
+  surfaceContainer: '#eeeeed',
+  surfaceContainerHighest: '#e2e2e2',
+  surfaceLowest: '#ffffff',
+  onSurface: '#1a1c1c',
+  onSurfaceVariant: '#43474e',
+  outline: '#74777f',
+  outlineVariant: '#c4c6cf',
+  onPrimary: '#ffffff',
+  error: '#ba1a1a',
+  success: '#386a20',
+  successBg: '#c4f0c4',
+};
+
+/* ── Uniform Styles for User Pages ─────────────────────────────── */
+const styles = {
+  pageContainer: {
+    background: C.surface,
+    minHeight: '100%',
+    fontFamily: "'Inter', sans-serif",
+    color: C.onSurface,
+    padding: '32px 48px',
+    maxWidth: 1400,
+    margin: '0 auto',
+    boxSizing: 'border-box',
+  },
+  breadcrumb: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 24,
+    fontSize: 13,
+    fontWeight: 500,
+    color: C.onSurfaceVariant,
+  },
+  breadcrumbLink: {
+    background: 'none',
+    border: 'none',
+    color: C.primary,
+    fontWeight: 600,
+    cursor: 'pointer',
+    padding: 0,
+    fontSize: 13,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+  },
+  header: { marginBottom: 32 },
+  title: {
+    fontFamily: "'Poppins', sans-serif",
+    fontSize: 28,
+    fontWeight: 700,
+    color: C.primary,
+    margin: 0,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: C.onSurfaceVariant,
+    margin: '8px 0 0',
+    lineHeight: 1.5,
+  },
+  uniformCard: {
+    background: C.surfaceLowest,
+    border: `1px solid ${C.outlineVariant}`,
+    borderRadius: 12,
+    boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)',
+  },
+  sectionTitle: {
+    fontFamily: "'Poppins', sans-serif",
+    fontSize: 20,
+    fontWeight: 600,
+    color: C.primary,
+    margin: 0,
+  },
+  textButton: {
+    background: 'none',
+    border: 'none',
+    color: C.primary,
+    fontWeight: 700,
+    fontSize: 14,
+    cursor: 'pointer',
+    padding: 0,
+  },
+};
 
 const UserDashboard = () => {
   const { user } = useAuth();
@@ -14,6 +103,7 @@ const UserDashboard = () => {
   const [featured, setFeatured] = useState([]);
   const [recentRedemptions, setRecentRedemptions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -25,97 +115,339 @@ const UserDashboard = () => {
     }).finally(() => setLoading(false));
   }, []);
 
-  const firstName = user?.name?.split(' ')[0];
+  const firstName = user?.name?.split(' ')[0] || 'User';
+  const pointsBalance = user?.points?.toLocaleString() || 0;
+
+  const handleCopyCode = () => {
+    const code = user?.referralCode;
+    if (code) {
+      navigator.clipboard.writeText(code).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(err => console.error("Failed to copy: ", err));
+    }
+  };
+
+  const ms = (size = 24, fill = 0) => ({
+    fontFamily: "'Material Symbols Outlined'",
+    fontSize: size,
+    fontVariationSettings: `"FILL" ${fill}, "wght" 400, "GRAD" 0, "opsz" 24`,
+    lineHeight: 1,
+    display: 'inline-block',
+    verticalAlign: 'middle',
+  });
 
   return (
-    <div className="vx-page" style={{ maxWidth: 1180 }}>
+    <div style={styles.pageContainer}>
 
-      {/* Greeting */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.8rem', fontWeight: 800 }}>Hey {firstName} 👋</h1>
-        <p style={{ color: 'var(--ink-500)', marginTop: '0.3rem' }}>Here's what's happening with your account.</p>
+      {/* PLAIN HEADER (No Card) */}
+      <div style={styles.header}>
+        <h1 style={styles.title}>Welcome back, {firstName} 👋</h1>
       </div>
 
-      {/* Stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2.5rem' }}
-        className="vx-stat-grid">
-        <StatCard icon="pi-star-fill" label="Points balance" value={user?.points?.toLocaleString() || 0} accent="var(--accent-amber)" />
-        <StatCard icon="pi-check-circle" label="Vouchers redeemed" value={recentRedemptions.length > 0 ? recentRedemptions.length : 0} accent="var(--accent-emerald)" />
-        <StatCard icon="pi-share-alt" label="Referral code" value={user?.referralCode || '—'} accent="var(--brand-600)" />
-        <div className="vx-card" style={{
-          padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center',
-          background: 'linear-gradient(135deg, var(--brand-600), var(--brand-500))', border: 'none',
-        }}>
-          <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Need points?</span>
-          <Button label="Invite a friend" icon="pi pi-arrow-right" iconPos="right" text
-            onClick={() => navigate('/referral')}
-            style={{ color: '#fff', fontWeight: 600, padding: 0, justifyContent: 'flex-start' }} />
-        </div>
-      </div>
+      {/* MAIN CONTENT GRID */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 24 }} className="pp-dash-grid">
+        
+        {/* Left Column */}
+        <div className="pp-dash-col-left" style={{ gridColumn: 'span 5', display: 'flex', flexDirection: 'column', gap: 24 }}>
+          
+          {/* Points Balance Card */}
+          <div style={{ 
+            position: 'relative', 
+            overflow: 'hidden', 
+            padding: '32px 28px', 
+            borderRadius: 16,
+            background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryContainer} 60%, #2a4f7a 100%)`,
+            boxShadow: '0 12px 32px rgba(2, 36, 72, 0.25)',
+            border: '1px solid rgba(255,255,255,0.08)',
+          }}>
+            {/* Decorative circles */}
+            <div style={{ position: 'absolute', top: -30, right: -30, width: 140, height: 140, background: 'rgba(212,160,23,0.12)', borderRadius: '50%', filter: 'blur(40px)' }} />
+            <div style={{ position: 'absolute', bottom: -20, left: -20, width: 100, height: 100, background: 'rgba(255,255,255,0.06)', borderRadius: '50%', filter: 'blur(30px)' }} />
 
-      {/* Featured vouchers */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Featured vouchers</h2>
-        <Button label="View all" text onClick={() => navigate('/vouchers')} style={{ color: 'var(--brand-600)' }} />
-      </div>
+            <div style={{ position: 'relative', zIndex: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
+                <div style={{ 
+                  width: 36, height: 36, borderRadius: 10, 
+                  background: 'rgba(212,160,23,0.15)', 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center' 
+                }}>
+                  <span style={{ ...ms(20, 1), color: C.brandGold }}>account_balance_wallet</span>
+                </div>
+                <span style={{ 
+                  fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.6)', 
+                  textTransform: 'uppercase', letterSpacing: '0.1em' 
+                }}>
+                  Wallet Balance
+                </span>
+              </div>
 
-      {loading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.25rem', marginBottom: '2.5rem' }}>
-          {[1, 2, 3, 4].map((i) => <Skeleton key={i} height="280px" borderRadius="16px" />)}
-        </div>
-      ) : featured.length === 0 ? (
-        <EmptyState icon="pi-ticket" title="No featured vouchers right now"
-          body="Check back soon or browse the full catalog." actionLabel="Browse all vouchers"
-          onAction={() => navigate('/vouchers')} />
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.25rem', marginBottom: '2.5rem' }}
-          className="vx-feat-grid">
-          {featured.map((v) => <VoucherCard key={v._id} voucher={v} />)}
-        </div>
-      )}
-
-      {/* Recent activity */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Recent redemptions</h2>
-        <Button label="View all" text onClick={() => navigate('/my-redemptions')} style={{ color: 'var(--brand-600)' }} />
-      </div>
-
-      {recentRedemptions.length === 0 ? (
-        <EmptyState icon="pi-inbox" title="No redemptions yet"
-          body="Browse vouchers and redeem your first one to see it here." actionLabel="Browse vouchers"
-          onAction={() => navigate('/vouchers')} />
-      ) : (
-        <div className="vx-card" style={{ overflow: 'hidden' }}>
-          {recentRedemptions.map((r, i) => (
-            <div key={r._id} onClick={() => navigate(`/my-redemptions`)} style={{
-              display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.25rem', cursor: 'pointer',
-              borderBottom: i < recentRedemptions.length - 1 ? '1px solid var(--surface-border)' : 'none',
-            }}>
-              <div style={{
-                width: 40, height: 40, borderRadius: 10, background: 'var(--surface-100)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              <h3 style={{ 
+                fontFamily: "'Poppins', sans-serif", 
+                fontSize: 'clamp(36px, 5vw, 52px)', 
+                fontWeight: 800, 
+                color: C.onPrimary, 
+                margin: '0 0 4px', 
+                lineHeight: 1, 
+                letterSpacing: '-0.02em' 
               }}>
-                <i className="pi pi-ticket" style={{ color: 'var(--brand-600)' }} />
+                {pointsBalance}
+              </h3>
+              <p style={{ 
+                fontWeight: 500, 
+                color: 'rgba(255,255,255,0.5)', 
+                margin: '0 0 32px',
+                fontSize: 14,
+                letterSpacing: '0.02em'
+              }}>
+                Available Points
+              </p>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <button 
+                  onClick={() => navigate('/vouchers')} 
+                  className="pp-pulse-btn" 
+                  style={{ 
+                    background: C.brandGold, 
+                    color: '#1a1200', 
+                    padding: '12px 28px', 
+                    borderRadius: 10, 
+                    fontWeight: 700, 
+                    fontSize: 14, 
+                    border: 'none', 
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(212,160,23,0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <span style={{ ...ms(18, 1) }}>redeem</span>
+                  Redeem Now
+                </button>
+                <button 
+                  onClick={() => navigate('/referral')} 
+                  style={{ 
+                    background: 'rgba(255,255,255,0.08)', 
+                    border: '1px solid rgba(255,255,255,0.15)', 
+                    color: '#fff', 
+                    fontWeight: 600, 
+                    fontSize: 14, 
+                    cursor: 'pointer',
+                    borderRadius: 10,
+                    padding: '12px 20px',
+                    backdropFilter: 'blur(8px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <span style={{ ...ms(18, 0) }}>group_add</span>
+                  Invite Friends
+                </button>
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{r.voucher?.title}</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--ink-500)' }}>{r.redemptionCode}</div>
-              </div>
-              <i className="pi pi-chevron-right" style={{ color: 'var(--ink-300)' }} />
             </div>
-          ))}
+
+            <div style={{ marginTop: 28, position: 'relative', zIndex: 10, paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 10 }}>
+                <span style={{ color: 'rgba(255,255,255,0.5)' }}>Progress to Gold Tier</span>
+                <span style={{ color: C.brandGold, fontWeight: 700 }}>65%</span>
+              </div>
+              <div style={{ width: '100%', height: 8, background: 'rgba(255,255,255,0.1)', borderRadius: 999, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: '65%', background: `linear-gradient(90deg, ${C.brandGold}, #f0c040)`, borderRadius: 999, boxShadow: '0 0 12px rgba(212,160,23,0.4)' }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Stats Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ ...styles.uniformCard, padding: 20 }}>
+              <span style={{ ...ms(24), color: C.primary, marginBottom: 8, display: 'block' }}>confirmation_number</span>
+              <p style={{ fontSize: 12, color: C.onSurfaceVariant, margin: 0 }}>Total Redemptions</p>
+              <p style={{ fontFamily: "'Poppins', sans-serif", fontSize: 20, fontWeight: 600, color: C.primary, margin: '4px 0 0' }}>
+                {recentRedemptions.length || 0}
+              </p>
+            </div>
+            <div 
+              onClick={handleCopyCode} 
+              className="pp-copy-card"
+              style={{ 
+                ...styles.uniformCard, 
+                padding: 20, 
+                cursor: 'pointer', 
+                transition: 'all 0.2s ease',
+                position: 'relative'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                <span style={{ ...ms(24), color: C.primary, display: 'block' }}>
+                  {copied ? 'check_circle' : 'share'}
+                </span>
+                <span style={{ 
+                  fontSize: 10, 
+                  color: copied ? C.success : C.onSurfaceVariant, 
+                  fontWeight: 700, 
+                  textTransform: 'uppercase', 
+                  letterSpacing: '0.05em',
+                  transition: 'color 0.2s'
+                }}>
+                  {copied ? 'Copied!' : 'Click to copy'}
+                </span>
+              </div>
+              <p style={{ fontSize: 12, color: C.onSurfaceVariant, margin: 0 }}>Referral Code</p>
+              <p style={{ fontFamily: "'Poppins', sans-serif", fontSize: 20, fontWeight: 600, color: C.primary, margin: '4px 0 0' }}>
+                {user?.referralCode || '—'}
+              </p>
+            </div>
+          </div>
         </div>
-      )}
+
+        {/* Right Column: Recent Redemptions */}
+        <div className="pp-dash-col-right" style={{ gridColumn: 'span 7', ...styles.uniformCard, padding: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+            <h4 style={styles.sectionTitle}>Recent Redemptions</h4>
+            <button onClick={() => navigate('/my-redemptions')} style={styles.textButton}>See All</button>
+          </div>
+
+          {loading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {[1, 2, 3].map(i => <div key={i} style={{ height: 72, background: C.surfaceContainer, borderRadius: 8, opacity: 0.5 }} />)}
+            </div>
+          ) : recentRedemptions.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 16px', border: `2px dashed ${C.outlineVariant}`, borderRadius: 12 }}>
+              <span style={ms(48, 0)} className="material-symbols-outlined">inbox</span>
+              <h5 style={{ fontFamily: "'Poppins', sans-serif", margin: '12px 0 4px', color: C.onSurface }}>No redemptions yet</h5>
+              <p style={{ fontSize: 14, color: C.onSurfaceVariant, margin: '0 0 16px' }}>Browse vouchers and redeem your first one to see it here.</p>
+              <button onClick={() => navigate('/vouchers')} style={{ background: C.primary, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}>
+                Browse Vouchers
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {recentRedemptions.map((r) => (
+                <div 
+                  key={r._id} 
+                  onClick={() => navigate('/my-redemptions')} 
+                  className="pp-redemption-item"
+                  style={{ 
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+                    padding: 16, background: C.surface, borderRadius: 8, cursor: 'pointer', 
+                    transition: 'all 0.2s', border: `1px solid transparent`
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: `${C.primary}10`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span style={{ ...ms(24), color: C.primary }}>confirmation_number</span>
+                    </div>
+                    <div>
+                      <p style={{ fontWeight: 700, color: C.primary, margin: 0, fontSize: 15 }}>{r.voucher?.title || 'Unknown Voucher'}</p>
+                      <p style={{ fontSize: 12, color: C.onSurfaceVariant, margin: '4px 0 0', fontFamily: 'monospace' }}>Code: {r.redemptionCode}</p>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ background: C.successBg, color: C.success, fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Success</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Column: Featured Vouchers */}
+        <div style={{ gridColumn: 'span 12', marginTop: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
+            <div>
+              <h4 style={styles.sectionTitle}>Featured Vouchers</h4>
+              <p style={{ color: C.onSurfaceVariant, fontSize: 14, margin: '4px 0 0' }}>Hand-picked rewards available for instant redemption.</p>
+            </div>
+            <button onClick={() => navigate('/vouchers')} style={styles.textButton}>View All</button>
+          </div>
+
+          {loading ? (
+            <div style={{ display: 'flex', gap: 24, overflowX: 'hidden' }}>
+              {[1, 2, 3, 4].map(i => <div key={i} style={{ minWidth: 320, height: 224, background: C.surfaceContainer, borderRadius: 12 }} />)}
+            </div>
+          ) : featured.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 16px', border: `2px dashed ${C.outlineVariant}`, borderRadius: 12, ...styles.uniformCard }}>
+              <span style={ms(48, 0)} className="material-symbols-outlined">ticket</span>
+              <h5 style={{ fontFamily: "'Poppins', sans-serif", margin: '12px 0 4px', color: C.onSurface }}>No featured vouchers right now</h5>
+              <p style={{ fontSize: 14, color: C.onSurfaceVariant, margin: '0 0 16px' }}>Check back soon or browse the full catalog.</p>
+              <button onClick={() => navigate('/vouchers')} style={{ background: C.primary, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}>Browse All Vouchers</button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 24, overflowX: 'auto', paddingBottom: 16, scrollSnapType: 'x mandatory' }} className="pp-carousel">
+              {featured.map((v) => (
+                <div 
+                  key={v._id} 
+                  onClick={() => navigate('/vouchers')} 
+                  className="pp-voucher-carousel-card"
+                  style={{ 
+                    minWidth: 320, height: 224, background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryContainer} 100%)`, 
+                    borderRadius: 12, padding: 24, color: '#fff', display: 'flex', flexDirection: 'column', 
+                    justifyContent: 'space-between', cursor: 'pointer', position: 'relative', overflow: 'hidden',
+                    scrollSnapAlign: 'center', boxShadow: '0px 8px 24px rgba(2, 36, 72, 0.15)', flexShrink: 0
+                  }}
+                >
+                  <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, background: 'rgba(255,255,255,0.1)', borderRadius: '50%', filter: 'blur(40px)' }} />
+                  
+                  <div style={{ position: 'relative', zIndex: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                      <div style={{ background: C.brandGold, color: '#fff', padding: '4px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+                        {formatDiscount(v.discountType, v.discountValue)}
+                      </div>
+                    </div>
+                    <h5 style={{ 
+                      fontFamily: "'Poppins', sans-serif", fontSize: 18, fontWeight: 600, margin: '0 0 6px', 
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      paddingRight: 4
+                    }}>
+                      {v.title}
+                    </h5>
+                    <p style={{ 
+                      margin: 0, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.1em', 
+                      opacity: 0.7, fontWeight: 700,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                    }}>
+                      {v.merchant}
+                    </p>
+                  </div>
+
+                  <div style={{ borderTop: '1px dashed rgba(255,255,255,0.3)', paddingTop: 16, position: 'relative', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <p style={{ margin: 0, fontSize: 12, opacity: 0.7 }}>Redemption Cost</p>
+                      <p style={{ fontFamily: "'Poppins', sans-serif", margin: 0, fontSize: 20, fontWeight: 700 }}>{v.pointsCost || 100} pts</p>
+                    </div>
+                    <button style={{ background: '#fff', color: C.primary, border: 'none', padding: '8px 16px', borderRadius: 8, fontWeight: 700, cursor: 'pointer' }}>Claim</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       <style>{`
-        @media (max-width: 900px) {
-          .vx-stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
-          .vx-feat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+        .pp-pulse-btn { animation: pp-pulse-gold 2.5s infinite; transition: all 0.2s; }
+        .pp-pulse-btn:hover { background: #e8b21c !important; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(212, 160, 23, 0.4) !important; }
+        @keyframes pp-pulse-gold {
+          0% { box-shadow: 0 4px 12px rgba(212, 160, 23, 0.3), 0 0 0 0 rgba(212, 160, 23, 0.3); }
+          70% { box-shadow: 0 4px 12px rgba(212, 160, 23, 0.3), 0 0 0 10px rgba(212, 160, 23, 0); }
+          100% { box-shadow: 0 4px 12px rgba(212, 160, 23, 0.3), 0 0 0 0 rgba(212, 160, 23, 0); }
         }
-        @media (max-width: 560px) {
-          .vx-stat-grid { grid-template-columns: 1fr !important; }
-          .vx-feat-grid { grid-template-columns: 1fr !important; }
+        .pp-copy-card { cursor: pointer; }
+        .pp-copy-card:hover { border-color: ${C.brandGold} !important; box-shadow: 0 4px 12px rgba(212,160,23,0.1); }
+        .pp-redemption-item:hover { background: ${C.surfaceContainer} !important; border-color: ${C.outlineVariant} !important; }
+        .pp-voucher-carousel-card:hover { transform: translateY(-4px); transition: transform 0.2s ease-out; }
+        .pp-carousel::-webkit-scrollbar { height: 6px; }
+        .pp-carousel::-webkit-scrollbar-track { background: ${C.surfaceContainer}; border-radius: 10px; }
+        .pp-carousel::-webkit-scrollbar-thumb { background: ${C.outlineVariant}; border-radius: 10px; }
+        @media (max-width: 1024px) {
+          .pp-dash-grid { grid-template-columns: 1fr !important; }
+          .pp-dash-col-left, .pp-dash-col-right { grid-column: span 12 !important; }
         }
+        @media (max-width: 768px) { div[style*="padding: 32px 48px"] { padding: 24px 16px !important; } }
       `}</style>
     </div>
   );

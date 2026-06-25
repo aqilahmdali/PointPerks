@@ -70,7 +70,6 @@ redemptionSchema.pre('find', function () {
 // Indexes
 redemptionSchema.index({ user: 1, createdAt: -1 });
 redemptionSchema.index({ voucher: 1 });
-redemptionSchema.index({ redemptionCode: 1 }, { unique: true });
 redemptionSchema.index({ status: 1 });
 redemptionSchema.index({ user: 1, voucher: 1 }); // For "already redeemed" check
 

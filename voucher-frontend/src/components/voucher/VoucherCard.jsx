@@ -1,7 +1,4 @@
 import React from 'react';
-import { Card } from 'primereact/card';
-import { Button } from 'primereact/button';
-import { Tag } from 'primereact/tag';
 import { useNavigate } from 'react-router-dom';
 import { formatDiscount, formatDate, categoryColors, categoryIcons, daysRemaining } from '../../utils/helpers';
 
@@ -9,77 +6,87 @@ const VoucherCard = ({ voucher }) => {
   const navigate = useNavigate();
   const days = daysRemaining(voucher.expiryDate);
 
-  const header = (
-    <div style={{
-      background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-      padding: '1.5rem', textAlign: 'center', borderRadius: '8px 8px 0 0',
-    }}>
-      {voucher.merchantLogo ? (
-        <img src={voucher.merchantLogo} alt={voucher.merchant}
-          style={{ height: '40px', objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
-          onError={(e) => { e.target.style.display = 'none'; }} />
-      ) : (
-        <i className={categoryIcons[voucher.category]} style={{ fontSize: '2rem', color: '#fff' }} />
-      )}
-      <div style={{
-        fontSize: '2rem', fontWeight: 'bold', color: '#fff', marginTop: '0.5rem',
-      }}>
-        {formatDiscount(voucher.discountType, voucher.discountValue)}
-      </div>
-    </div>
-  );
+  // Theme colors matching the provided style
+  const C = {
+    primary: '#022448',
+    primaryContainer: '#1e3a5f',
+    brandGold: '#ffc641'
+  };
 
   return (
-    <Card header={header} style={{ borderRadius: '8px', overflow: 'hidden', height: '100%' }}
-      className="shadow-2 hover:shadow-4 transition-all transition-duration-200">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-
-        {/* Title & Merchant */}
-        <div>
-          <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '600' }}>{voucher.title}</h4>
-          <p style={{ margin: '0.2rem 0 0', color: '#6c757d', fontSize: '0.85rem' }}>
-            <i className="pi pi-building" style={{ marginRight: '0.3rem' }} />
+    <div 
+      onClick={() => navigate(`/vouchers/${voucher._id}`)} 
+      style={{ 
+        height: '100%',
+        background: `linear-gradient(135deg, ${C.primary} 0%, ${C.primaryContainer} 100%)`, 
+        borderRadius: 16, 
+        padding: 24, 
+        color: '#fff', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        justifyContent: 'space-between', 
+        cursor: 'pointer', 
+        position: 'relative', 
+        overflow: 'hidden',
+        boxShadow: '0px 8px 24px rgba(2, 36, 72, 0.15)',
+        transition: 'transform 300ms ease, box-shadow 300ms ease'
+      }}
+      className="pp-voucher-card hover:-translate-y-1"
+    >
+      {/* Decorative blurred circle */}
+      <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, background: 'rgba(255,255,255,0.1)', borderRadius: '50%', filter: 'blur(40px)' }} />
+      
+      {/* Top Section: Title, Merchant & Discount */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 10 }}>
+        <div style={{ paddingRight: '1rem' }}>
+          <h5 style={{ fontFamily: "'Poppins', sans-serif", fontSize: 18, fontWeight: 600, margin: '0 0 4px', lineHeight: 1.3 }}>
+            {voucher.title}
+          </h5>
+          <p style={{ margin: 0, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.7, fontWeight: 700 }}>
             {voucher.merchant}
           </p>
-        </div>
-
-        {/* Category & Featured */}
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <Tag value={voucher.category} severity={categoryColors[voucher.category]} />
-          {voucher.isFeatured && <Tag value="Featured" severity="warning" icon="pi pi-star" />}
-          {days <= 7 && <Tag value={`${days}d left`} severity="danger" icon="pi pi-clock" />}
-        </div>
-
-        {/* Points Cost */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '0.85rem', color: '#6c757d' }}>
-            <i className="pi pi-star" style={{ color: '#f59e0b', marginRight: '0.3rem' }} />
-            {voucher.pointsCost > 0 ? `${voucher.pointsCost} pts` : 'Free'}
-          </span>
-          {voucher.totalLimit && (
-            <span style={{ fontSize: '0.8rem', color: '#6c757d' }}>
-              {voucher.remainingCount} left
+          
+          {/* Category & Expiry Tags */}
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+            <span style={{ background: 'rgba(255,255,255,0.15)', padding: '2px 8px', borderRadius: 999, fontSize: 11, textTransform: 'capitalize', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <i className={categoryIcons[voucher.category]} style={{ fontSize: '10px' }} />
+              {voucher.category}
             </span>
-          )}
+            {days <= 7 && (
+              <span style={{ background: 'rgba(255, 80, 80, 0.4)', padding: '2px 8px', borderRadius: 999, fontSize: 11, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <i className="pi pi-clock" style={{ fontSize: '10px' }} />
+                {days}d left
+              </span>
+            )}
+          </div>
         </div>
-
-        {/* Expiry */}
-        <p style={{ margin: 0, fontSize: '0.8rem', color: '#9ca3af' }}>
-          <i className="pi pi-calendar" style={{ marginRight: '0.3rem' }} />
-          Expires: {formatDate(voucher.expiryDate)}
-        </p>
-
-        {/* Action Button */}
-        <Button
-          label="View Details"
-          icon="pi pi-arrow-right"
-          iconPos="right"
-          className="p-button-sm"
-          style={{ marginTop: 'auto' }}
-          onClick={() => navigate(`/vouchers/${voucher._id}`)}
-        />
+        
+        <div style={{ background: C.brandGold, color: '#fff', padding: '4px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>
+          {formatDiscount(voucher.discountType, voucher.discountValue)}
+        </div>
       </div>
-    </Card>
+
+      {/* Bottom Section: Dashed Separator, Points & Button */}
+      <div style={{ borderTop: '1px dashed rgba(255,255,255,0.3)', paddingTop: 16, position: 'relative', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <p style={{ margin: 0, fontSize: 12, opacity: 0.7 }}>
+            {voucher.totalLimit ? `${voucher.remainingCount} left · ` : ''}Expires {formatDate(voucher.expiryDate)}
+          </p>
+          <p style={{ fontFamily: "'Poppins', sans-serif", margin: 0, fontSize: 20, fontWeight: 700 }}>
+            {voucher.pointsCost > 0 ? `${voucher.pointsCost} pts` : 'Free'}
+          </p>
+        </div>
+        <button 
+          style={{ background: '#fff', color: C.primary, border: 'none', padding: '8px 16px', borderRadius: 8, fontWeight: 700, cursor: 'pointer' }}
+          onClick={(e) => { 
+            e.stopPropagation(); // Prevents double firing of the parent div's onClick
+            navigate(`/vouchers/${voucher._id}`); 
+          }}
+        >
+          View Details
+        </button>
+      </div>
+    </div>
   );
 };
 

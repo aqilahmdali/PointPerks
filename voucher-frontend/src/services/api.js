@@ -54,6 +54,7 @@ export const redemptionAPI = {
   cancel: (id) => API.post(`/redemptions/${id}/cancel`),
   getAll: (params) => API.get('/redemptions', { params }),
   markUsed: (id) => API.patch(`/redemptions/${id}/mark-used`),
+  delete: (id) => API.delete(`/redemptions/${id}`),
 };
 
 // Users
@@ -76,6 +77,9 @@ export const analyticsAPI = {
   getRedemptionsOverTime: (params) => API.get('/analytics/redemptions-over-time', { params }),
   getCategoryBreakdown: () => API.get('/analytics/category-breakdown'),
   getUserActivity: (limit) => API.get('/analytics/user-activity', { params: { limit } }),
+  getGrossValue: (params) => API.get('/analytics/gross-value', { params }),
+  getAvgTimeToRedeem: (params) => API.get('/analytics/avg-time-to-redeem', { params }),
+  getUserGrowth: (params) => API.get('/analytics/user-growth', { params }),
 };
 
 // Referrals

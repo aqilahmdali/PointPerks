@@ -20,7 +20,9 @@ export const registerUser = createAsyncThunk('auth/register', async (data, { rej
     localStorage.setItem('user', JSON.stringify(res.data.user));
     return res.data;
   } catch (err) {
-    return rejectWithValue(err.response?.data?.message || 'Registration failed');
+    const data = err.response?.data;
+    const message = data?.errors?.length ? data.errors.join(', ') : data?.message;
+    return rejectWithValue(message || 'Registration failed');
   }
 });
 
@@ -93,9 +95,24 @@ const authSlice = createSlice({
     });
 
     // Fetch Me
+    builder.addCase(fetchMe.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
     builder.addCase(fetchMe.fulfilled, (state, action) => {
+      state.loading = false;
       state.user = action.payload.user;
+      state.isAuthenticated = true;
       localStorage.setItem('user', JSON.stringify(action.payload.user));
+    });
+    builder.addCase(fetchMe.rejected, (state, action) => {
+      state.loading = false;
+      state.user = null;
+      state.token = null;
+      state.isAuthenticated = false;
+      state.error = action.payload;
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
     });
 
     // Logout

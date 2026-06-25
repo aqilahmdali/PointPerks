@@ -6,6 +6,7 @@ const { asyncHandler } = require('../middleware/error.middleware');
 const {
   redeemVoucher, getMyRedemptions, getRedemption,
   downloadRedemptionPDF, cancelRedemption, getAllRedemptions, markAsUsed,
+  deleteRedemption,
 } = require('../controllers/redemption.controller');
 
 // User routes
@@ -18,5 +19,6 @@ router.post('/:id/cancel', protect, asyncHandler(cancelRedemption));
 // Admin routes
 router.get('/', protect, adminOnly, asyncHandler(getAllRedemptions));
 router.patch('/:id/mark-used', protect, adminOnly, asyncHandler(markAsUsed));
+router.delete('/:id', protect, adminOnly, asyncHandler(deleteRedemption));
 
 module.exports = router;

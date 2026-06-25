@@ -38,6 +38,7 @@ import ManageVouchers from './pages/admin/ManageVouchers';
 import AddEditVoucher from './pages/admin/AddEditVoucher';
 import ManageUsers from './pages/admin/ManageUsers';
 import RedemptionAnalytics from './pages/admin/RedemptionAnalytics';
+import RedemptionActivity from './pages/admin/RedemptionActivity'
 
 function App() {
   return (
@@ -80,8 +81,8 @@ function App() {
               <Route path="/admin/vouchers/new" element={<AddEditVoucher />} />
               <Route path="/admin/vouchers/:id/edit" element={<AddEditVoucher />} />
               <Route path="/admin/users" element={<ManageUsers />} />
-              <Route path="/admin/redemptions" element={<RedemptionAnalytics />} />
               <Route path="/admin/analytics" element={<RedemptionAnalytics />} />
+              <Route path="/admin/redemptions" element={<RedemptionActivity />} /> 
             </Route>
 
             {/* ── Fallback ──────────────────────────────────────────── */}

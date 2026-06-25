@@ -80,10 +80,7 @@ userSchema.methods.spendPoints = async function (points, description, reference 
   return this.save();
 };
 
-// Index for performance
-userSchema.index({ email: 1 });
-userSchema.index({ googleId: 1 });
-userSchema.index({ referralCode: 1 });
+// Index for performance. Unique fields above already create their own indexes.
 userSchema.index({ role: 1 });
 
 module.exports = mongoose.model('User', userSchema);
