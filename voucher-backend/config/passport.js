@@ -2,6 +2,7 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const User = require('../models/User.model');
 const { generateReferralCode } = require('../utils/referral.util');
+const { processReferral } = require('../services/points.service');
 
 passport.use(
   new GoogleStrategy(
@@ -9,20 +10,19 @@ passport.use(
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       callbackURL: process.env.GOOGLE_CALLBACK_URL,
+      passReqToCallback: true,
     },
-    async (accessToken, refreshToken, profile, done) => {
+    async (req, accessToken, refreshToken, profile, done) => {
       try {
-        // Check if user already exists
+        // Existing user by Google ID
         let user = await User.findOne({ googleId: profile.id });
-
         if (user) {
-          // Update last login
           user.lastLogin = new Date();
           await user.save();
           return done(null, user);
         }
 
-        // Check if email already exists (link accounts)
+        // Link to existing email account
         const email = profile.emails?.[0]?.value;
         if (email) {
           user = await User.findOne({ email });
@@ -36,16 +36,16 @@ passport.use(
         }
 
         // Create new user
-        const referralCode = generateReferralCode();
+        const newReferralCode = generateReferralCode();
         const signupBonus = parseInt(process.env.SIGNUP_BONUS_POINTS) || 100;
 
         user = await User.create({
           googleId: profile.id,
           name: profile.displayName,
-          email: email,
+          email,
           avatar: profile.photos?.[0]?.value,
           role: 'user',
-          referralCode,
+          referralCode: newReferralCode,
           points: signupBonus,
           pointsHistory: [{
             type: 'earned',
@@ -56,6 +56,18 @@ passport.use(
           isVerified: true,
           lastLogin: new Date(),
         });
+
+        // Apply referral if one was provided before the Google redirect
+        const pendingRef = req.session?.pendingReferralCode;
+        if (pendingRef) {
+          const referrer = await User.findOne({ referralCode: pendingRef });
+          if (referrer && referrer._id.toString() !== user._id.toString()) {
+            user.referredBy = referrer._id;
+            await user.save();
+            await processReferral(referrer._id, user._id, pendingRef);
+          }
+          delete req.session.pendingReferralCode;
+        }
 
         return done(null, user);
       } catch (err) {

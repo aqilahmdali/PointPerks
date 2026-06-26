@@ -31,7 +31,10 @@ export const authAPI = {
   login: (data) => API.post('/auth/login', data),
   getMe: () => API.get('/auth/me'),
   logout: () => API.post('/auth/logout'),
-  googleLogin: () => { window.location.href = process.env.REACT_APP_GOOGLE_REDIRECT; },
+  googleLogin: (referralCode) => {
+    const base = process.env.REACT_APP_GOOGLE_REDIRECT || 'http://localhost:5000/api/auth/google';
+    window.location.href = referralCode ? `${base}?ref=${encodeURIComponent(referralCode)}` : base;
+  },
 };
 
 // Vouchers
