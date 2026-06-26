@@ -57,7 +57,6 @@ function useCountUp(end, duration = 1400, isActive = true) {
 
   useEffect(() => {
     if (!isActive || !end) return;
-    let start = 0;
     const startTime = performance.now();
     const animate = (now) => {
       const elapsed = now - startTime;

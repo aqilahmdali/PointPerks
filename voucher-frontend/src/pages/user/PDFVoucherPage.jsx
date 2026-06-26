@@ -44,7 +44,6 @@ const PDFVoucherPage = () => {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const getPdfFilename = () => `voucher-${redemption?.redemptionCode || id}.pdf`;
 
   const handleDownloadPDF = () => {
     window.print();

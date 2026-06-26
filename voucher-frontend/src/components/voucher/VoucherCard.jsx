@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { formatDiscount, formatDate, categoryColors, categoryIcons, daysRemaining } from '../../utils/helpers';
+import { formatDiscount, formatDate, categoryIcons, daysRemaining } from '../../utils/helpers';
 
 const VoucherCard = ({ voucher }) => {
   const navigate = useNavigate();
