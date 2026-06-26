@@ -20,18 +20,8 @@ const C = {
   white: '#ffffff',
 };
 
-/* ── Uniform Styles for User Pages ─────────────────────────────── */
+/* ── Shared styles (no container padding — layout handles that) ── */
 const styles = {
-  pageContainer: {
-    background: C.surface,
-    minHeight: '100%',
-    fontFamily: "'Inter', sans-serif",
-    color: C.onSurfaceVariant,
-    padding: '32px 48px',
-    maxWidth: 1400,
-    margin: '0 auto',
-    boxSizing: 'border-box',
-  },
   breadcrumb: {
     display: 'flex',
     alignItems: 'center',
@@ -53,7 +43,7 @@ const styles = {
     alignItems: 'center',
     gap: 4,
   },
-  header: { marginBottom: 24 },
+  header: { marginBottom: 32 },
   title: {
     fontFamily: "'Poppins', sans-serif",
     fontSize: 28,
@@ -64,7 +54,7 @@ const styles = {
   subtitle: {
     fontSize: 15,
     color: C.onSurfaceVariant,
-    margin: '8px 0 0',
+    margin: '16px 0 0',
     lineHeight: 1.5,
   },
   actionRow: {
@@ -124,7 +114,6 @@ const VoucherList = () => {
     return () => clearTimeout(handle);
   }, [category, search, sort, page]);
 
-  // Client-side sort fallback (if API doesn't support sort param)
   const getSortedVouchers = () => {
     const sorted = [...vouchers];
     switch (sort) {
@@ -171,11 +160,8 @@ const VoucherList = () => {
   };
 
   return (
-    <div style={styles.pageContainer}>
+    <div>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
-
         .material-symbols-outlined { font-family: 'Material Symbols Outlined'; font-weight: normal; font-style: normal; font-size: 24px; line-height: 1; letter-spacing: normal; text-transform: none; display: inline-block; white-space: nowrap; word-wrap: normal; direction: ltr; -webkit-font-feature-settings: 'liga'; -webkit-font-smoothing: antialiased; }
 
         /* Shimmer loading animation */
@@ -247,7 +233,7 @@ const VoucherList = () => {
           font-family: 'Inter', sans-serif;
           white-space: nowrap;
           border: 1px solid ${C.outlineVariant};
-          background: transparent;
+          background: 'transparent';
           color: ${C.onSurfaceVariant};
         }
         .pp-pill:hover {
@@ -281,7 +267,7 @@ const VoucherList = () => {
           animation: pp-shimmer 1.5s infinite;
         }
 
-        /* Pagination - New Style */
+        /* Pagination */
         .pp-pagination {
           display: flex;
           justify-content: center;
@@ -372,7 +358,6 @@ const VoucherList = () => {
 
         /* Responsive */
         @media (max-width: 768px) { 
-          div[style*="padding: 32px 48px"] { padding: 24px 16px !important; } 
           .pp-search-wrap { min-width: 100%; }
         }
       `}</style>
@@ -394,7 +379,7 @@ const VoucherList = () => {
       </div>
 
       {/* ACTION BAR: Search & Sort */}
-      <div style={{ ...styles.actionRow, marginBottom: 24 }}>
+      <div style={{ ...styles.actionRow, marginBottom: 28 }}>
         {/* Search Input */}
         <div className="pp-search-wrap">
           <span className="material-symbols-outlined" style={{ 
@@ -417,7 +402,7 @@ const VoucherList = () => {
           />
         </div>
 
-        {/* Sort By Dropdown - Now Functional */}
+        {/* Sort By Dropdown */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span className="material-symbols-outlined" style={{ fontSize: '20px', color: C.outline }}>sort</span>
           <select 
@@ -432,8 +417,8 @@ const VoucherList = () => {
         </div>
       </div>
 
-      {/* Category Pills - Added margin top for spacing */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '40px', flexWrap: 'wrap' }}>
+      {/* Category Pills */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '48px', flexWrap: 'wrap' }}>
         {CATEGORIES.map((c) => {
           const isActive = category === c.key;
           return (
@@ -473,7 +458,7 @@ const VoucherList = () => {
             ))}
           </div>
 
-          {/* Pagination - New Style */}
+          {/* Pagination */}
           {total > PAGE_SIZE && (
             <div className="pp-pagination">
               {/* Previous Button */}

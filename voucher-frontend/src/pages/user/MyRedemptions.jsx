@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { redemptionAPI } from '../../services/api';
 import { formatDate } from '../../utils/helpers';
-import UserPageHeader from '../../components/layout/UserPageChrome';
 
 /* ── Design tokens ─────────────────────────────────────────────── */
 const C = {
@@ -32,18 +31,8 @@ const C = {
   warningBg: '#ffdfa0',
 };
 
-/* ── Uniform Styles for User Pages ─────────────────────────────── */
+/* ── Shared styles (no container padding — layout handles that) ── */
 const styles = {
-  pageContainer: {
-    background: C.surface,
-    minHeight: '100%',
-    fontFamily: "'Inter', sans-serif",
-    color: C.onSurface,
-    padding: '32px 48px',
-    maxWidth: 1400,
-    margin: '0 auto',
-    boxSizing: 'border-box',
-  },
   breadcrumb: {
     display: 'flex',
     alignItems: 'center',
@@ -90,10 +79,20 @@ const styles = {
 const TABS = [
   { label: 'All', status: undefined },
   { label: 'Active', status: 'active' },
-  { label: 'Used', status: 'used' },
   { label: 'Cancelled', status: 'cancelled' },
 ];
 
+/* ── Material Symbols helper ── */
+const ms = (size = 20, fill = 0) => ({
+  fontFamily: "'Material Symbols Outlined'",
+  fontSize: size,
+  fontVariationSettings: `"FILL" ${fill}, "wght" 400, "GRAD" 0, "opsz" 24`,
+  lineHeight: 1,
+  display: 'inline-block',
+  verticalAlign: 'middle',
+});
+
+/* ════════════════════════════════════════════════════════ */
 const MyRedemptions = () => {
   const navigate = useNavigate();
   const [tab, setTab] = useState(0);
@@ -134,8 +133,6 @@ const MyRedemptions = () => {
     switch (status) {
       case 'active':
         return { bg: C.successBg, color: C.success, label: 'Active', icon: 'check_circle' };
-      case 'used':
-        return { bg: C.surfaceHighest, color: C.onSurfaceVariant, label: 'Used', icon: 'check_circle' };
       case 'cancelled':
       case 'expired':
         return { bg: C.errorContainer, color: C.error, label: status.charAt(0).toUpperCase() + status.slice(1), icon: 'event_busy' };
@@ -144,19 +141,10 @@ const MyRedemptions = () => {
     }
   };
 
-  const ms = (size = 20, fill = 0) => ({
-    fontFamily: "'Material Symbols Outlined'",
-    fontSize: size,
-    fontVariationSettings: `"FILL" ${fill}, "wght" 400, "GRAD" 0, "opsz" 24`,
-    lineHeight: 1,
-    display: 'inline-block',
-    verticalAlign: 'middle',
-  });
-
   return (
-    <div style={styles.pageContainer}>
-      
-      {/* BREADCRUMB */}
+    <div>
+
+      {/* Breadcrumb */}
       <nav style={styles.breadcrumb}>
         <button onClick={() => navigate('/dashboard')} style={styles.breadcrumbLink}>
           <span style={ms(16, 0)}>home</span>
@@ -166,13 +154,13 @@ const MyRedemptions = () => {
         <span style={{ color: C.onSurface, fontWeight: 600 }}>My Redemptions</span>
       </nav>
 
-      {/* PLAIN HEADER (No Card) */}
+      {/* Header */}
       <div style={styles.header}>
         <h1 style={styles.title}>My Redemptions</h1>
         <p style={styles.subtitle}>Manage and view all your claimed rewards in one place.</p>
       </div>
 
-      {/* Stats Bar (Bento-lite) */}
+      {/* Stats Bar */}
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24, marginBottom: 40, marginTop: 32 }} className="pp-stats-grid">
         <div className="pp-stat-card" style={styles.uniformCard}>
           <p className="pp-stat-label">Total Redeemed</p>
@@ -182,7 +170,7 @@ const MyRedemptions = () => {
           <p className="pp-stat-label">Points Spent</p>
           <p className="pp-stat-value">
             {redemptions
-              .filter((r) => r.status === 'active' || r.status === 'used')
+              .filter((r) => r.status === 'active')
               .reduce((acc, r) => acc + (r.pointsUsed || 0), 0)
               .toLocaleString()} pts
           </p>
@@ -235,20 +223,20 @@ const MyRedemptions = () => {
           ))}
         </div>
       ) : redemptions.length === 0 ? (
-        <div 
-          onClick={() => navigate('/vouchers')} 
+        <div
+          onClick={() => navigate('/vouchers')}
           className="pp-empty-state"
-          style={{ 
+          style={{
             ...styles.uniformCard,
-            background: `${C.surfaceLow}80`, 
-            border: `2px dashed ${C.outlineVariant}`, 
-            padding: 48, 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
+            background: `${C.surfaceLow}80`,
+            border: `2px dashed ${C.outlineVariant}`,
+            padding: 48,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
             cursor: 'pointer',
-            transition: 'background 0.2s'
+            transition: 'background 0.2s',
           }}
         >
           <div style={{ width: 64, height: 64, borderRadius: '50%', background: C.surfaceHighest, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
@@ -265,14 +253,14 @@ const MyRedemptions = () => {
             const isCancelled = r.status === 'cancelled' || r.status === 'expired';
 
             return (
-              <div 
-                key={r._id} 
-                className="pp-ticket-card" 
-                style={{ 
+              <div
+                key={r._id}
+                className="pp-ticket-card"
+                style={{
                   ...styles.uniformCard,
-                  position: 'relative', 
-                  display: 'flex', 
-                  flexDirection: 'column', 
+                  position: 'relative',
+                  display: 'flex',
+                  flexDirection: 'column',
                   overflow: 'hidden',
                   opacity: isUsed || isCancelled ? 0.75 : 1,
                   filter: isUsed ? 'grayscale(0.8)' : 'none',
@@ -324,10 +312,10 @@ const MyRedemptions = () => {
                   <span style={{ fontSize: 14, color: C.onSurfaceVariant }}>
                     <span style={{ fontWeight: 700, color: C.primary }}>{r.pointsUsed?.toLocaleString() || 0}</span> points used
                   </span>
-                  
+
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button 
-                      onClick={() => handleViewPDF(r._id)} 
+                    <button
+                      onClick={() => handleViewPDF(r._id)}
                       className="pp-action-btn"
                       style={{ color: C.primary, borderColor: C.outlineVariant }}
                     >
@@ -335,8 +323,8 @@ const MyRedemptions = () => {
                       View PDF
                     </button>
                     {r.status === 'active' && (
-                      <button 
-                        onClick={() => handleCancel(r._id)} 
+                      <button
+                        onClick={() => handleCancel(r._id)}
                         className="pp-action-btn"
                         style={{ color: C.error, borderColor: C.errorContainer }}
                       >
@@ -357,9 +345,6 @@ const MyRedemptions = () => {
       )}
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700;800&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
-
         .pp-btn-primary {
           background: ${C.primary};
           color: ${C.onPrimary};
@@ -374,13 +359,10 @@ const MyRedemptions = () => {
           box-shadow: 0 8px 24px rgba(2, 36, 72, 0.15);
         }
 
-        /* Updated to strictly follow uniformCard shadow/border */
-        .pp-stat-card {
-          padding: 24px;
-        }
+        .pp-stat-card { padding: 24px; }
         .pp-stat-label {
           font-size: 12px;
-          textTransform: uppercase;
+          text-transform: uppercase;
           letter-spacing: 0.08em;
           color: ${C.onSurfaceVariant};
           margin: 0 0 4px;
@@ -433,11 +415,6 @@ const MyRedemptions = () => {
         @media (max-width: 1024px) {
           .pp-stats-grid {
             grid-template-columns: repeat(2, 1fr) !important;
-          }
-        }
-        @media (max-width: 768px) {
-          div[style*="padding: 32px 48px"] {
-            padding: 24px 16px !important;
           }
         }
         @media (max-width: 600px) {

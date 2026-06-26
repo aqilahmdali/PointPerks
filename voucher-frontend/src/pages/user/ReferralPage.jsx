@@ -33,18 +33,8 @@ const C = {
   twitter: '#1DA1F2',
 };
 
-/* ── Uniform Styles for User Pages ─────────────────────────────── */
+/* ── Shared styles (no container padding — layout handles that) ── */
 const styles = {
-  pageContainer: {
-    background: C.surface,
-    minHeight: '100%',
-    fontFamily: "'Inter', sans-serif",
-    color: C.onSurfaceVariant,
-    padding: '32px 48px',
-    maxWidth: 1400,
-    margin: '0 auto',
-    boxSizing: 'border-box',
-  },
   breadcrumb: {
     display: 'flex',
     alignItems: 'center',
@@ -83,75 +73,70 @@ const styles = {
 };
 
 const ppStyles = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap');
-  @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
-  
-  /* Adjusted grid: 8fr 4fr stretches the left card further to the right */
+  /* Hero grid */
   .pp-grid-hero { display: grid; grid-template-columns: 1fr; gap: 24px; margin-bottom: 24px; }
   @media (min-width: 1024px) { .pp-grid-hero { grid-template-columns: 8fr 4fr; } }
-  
+
   .pp-card { background: ${C.surfaceContainerLowest}; border-radius: 12px; border: 1px solid ${C.surfaceVariant}; box-shadow: 0px 4px 20px rgba(30, 58, 95, 0.04); }
   .pp-card-pad { padding: 24px; }
-  
+
   .pp-label { font-size: 14px; font-weight: 500; color: ${C.onSurfaceVariant}; margin-bottom: 12px; display: block; }
   .pp-input-wrap { position: relative; flex: 1; }
   .pp-input { width: 100%; background: ${C.surfaceContainerLow}; border: 1px solid ${C.outlineVariant}; border-radius: 12px; padding: 12px 16px; font-size: 16px; color: ${C.primary}; outline: none; font-family: 'Inter', sans-serif; box-sizing: border-box; }
   .pp-input:focus { border-color: ${C.primary}; }
   .pp-copy-btn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); padding: 8px; background: transparent; border: none; cursor: pointer; color: ${C.primary}; border-radius: 8px; transition: background 0.2s; display: flex; align-items: center; }
   .pp-copy-btn:hover { background: ${C.primaryContainer}; color: ${C.white}; }
-  
+
   .pp-share-label { font-size: 12px; font-weight: 600; color: ${C.outline}; text-transform: uppercase; letter-spacing: 0.05em; }
   .pp-share-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; color: ${C.white}; cursor: pointer; transition: transform 0.2s; border: none; }
   .pp-share-btn:hover { transform: scale(1.1); }
   .pp-share-btn:active { transform: scale(0.95); }
-  
-  /* Slightly reduced max-width to comfortably fit the smaller 4fr column */
-  .pp-illust-wrap { 
-    position: relative; 
-    width: 100%; 
-    height: 100%; 
-    max-width: 375px; 
-    margin: 0 auto; 
+
+  .pp-illust-wrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    max-width: 375px;
+    margin: 0 auto;
   }
-  @media (max-width: 1023px) { 
-    .pp-illust-wrap { 
-      height: auto; 
-      aspect-ratio: 1; 
-      max-width: 350px; 
-    } 
+  @media (max-width: 1023px) {
+    .pp-illust-wrap {
+      height: auto;
+      aspect-ratio: 1;
+      max-width: 350px;
+    }
   }
-  
+
   .pp-illust-bg-1 { position: absolute; inset: 0; background: linear-gradient(to top right, ${C.primaryContainer}, ${C.tertiaryContainer}); border-radius: 24px; transform: rotate(3deg) scale(0.95); opacity: 0.2; }
   .pp-illust-bg-2 { position: absolute; inset: 0; background: linear-gradient(to bottom left, ${C.secondaryContainer}, ${C.secondaryFixedDim}); border-radius: 24px; transform: rotate(-3deg) scale(0.95); opacity: 0.2; }
   .pp-illust-card { position: relative; width: 100%; height: 100%; background: ${C.white}; border-radius: 24px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; border: 1px solid ${C.surfaceVariant}; box-sizing: border-box; }
-  
-  /* ✅ UPDATED: Added hover effects matching UserDashboard featured cards */
-  .pp-voucher-mock { 
-    position: relative; 
-    width: 100%; 
-    height: 192px; 
-    background: linear-gradient(135deg, ${C.primary} 0%, ${C.primaryContainer} 100%); 
-    border-radius: 12px; 
-    display: flex; 
-    flex-direction: column; 
-    align-items: center; 
-    justify-content: center; 
-    padding: 24px; 
-    color: ${C.white}; 
-    text-align: center; 
-    margin-bottom: 24px; 
+
+  .pp-voucher-mock {
+    position: relative;
+    width: 100%;
+    height: 192px;
+    background: linear-gradient(135deg, ${C.primary} 0%, ${C.primaryContainer} 100%);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    color: ${C.white};
+    text-align: center;
+    margin-bottom: 24px;
     box-sizing: border-box;
-    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out; 
-    cursor: pointer; 
+    transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+    cursor: pointer;
     box-shadow: 0px 8px 24px rgba(2, 36, 72, 0.15);
   }
-  .pp-voucher-mock:hover { 
-    transform: translateY(-4px); 
-    box-shadow: 0px 12px 28px rgba(2, 36, 72, 0.3); 
+  .pp-voucher-mock:hover {
+    transform: translateY(-4px);
+    box-shadow: 0px 12px 28px rgba(2, 36, 72, 0.3);
   }
-  
+
   .pp-voucher-divider { position: absolute; bottom: 40px; left: 16px; right: 16px; border-top: 1px dashed rgba(255,255,255,0.3); }
-  
+
   .pp-stats-grid { display: grid; grid-template-columns: 1fr; gap: 24px; margin-bottom: 24px; }
   @media (min-width: 768px) { .pp-stats-grid { grid-template-columns: repeat(3, 1fr); } }
   .pp-stat-card { background: ${C.surfaceContainerLowest}; padding: 24px; border-radius: 12px; border: 1px solid ${C.surfaceVariant}; display: flex; flex-direction: column; box-shadow: 0px 4px 20px rgba(30, 58, 95, 0.04); }
@@ -159,7 +144,7 @@ const ppStyles = `
   .pp-stat-label { font-size: 14px; font-weight: 500; color: ${C.onSurfaceVariant}; text-transform: uppercase; letter-spacing: 0.05em; }
   .pp-stat-value { font-family: 'Poppins', sans-serif; font-size: 32px; font-weight: 700; color: ${C.primary}; margin: 4px 0; }
   .pp-stat-sub { font-size: 12px; font-weight: 600; color: ${C.outline}; }
-  
+
   .pp-table-wrap { background: ${C.surfaceContainerLowest}; border-radius: 12px; border: 1px solid ${C.surfaceVariant}; overflow: hidden; box-shadow: 0px 4px 20px rgba(30, 58, 95, 0.04); }
   .pp-table-head { padding: 24px; border-bottom: 1px solid ${C.surfaceVariant}; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
   .pp-table-title { font-family: 'Poppins', sans-serif; font-size: 24px; font-weight: 600; color: ${C.primary}; margin: 0; }
@@ -170,14 +155,14 @@ const ppStyles = `
   .pp-tr:last-child .pp-td { border-bottom: none; }
   .pp-tr { transition: background 0.2s; }
   .pp-tr:hover { background: ${C.surfaceContainerLow}; }
-  
+
   .pp-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
   .pp-dot { width: 6px; height: 6px; border-radius: 50%; }
-  
+
   .pp-avatar { width: 32px; height: 32px; border-radius: 9999px; background: ${C.surfaceContainerHighest}; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: ${C.primary}; overflow: hidden; flex-shrink: 0; }
-  
+
   .pp-material { font-family: 'Material Symbols Outlined'; font-weight: normal; font-style: normal; font-size: 24px; line-height: 1; letter-spacing: normal; text-transform: none; display: inline-block; white-space: nowrap; word-wrap: normal; direction: ltr; -webkit-font-feature-settings: 'liga'; -webkit-font-smoothing: antialiased; }
-  
+
   .pp-sk { background: ${C.surfaceContainerHighest}; position: relative; overflow: hidden; border-radius: 16px; }
   .pp-sk::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent); animation: pp-shimmer 1.5s infinite; }
   @keyframes pp-shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
@@ -215,7 +200,7 @@ const ReferralPage = () => {
 
   if (loading) {
     return (
-      <div style={styles.pageContainer}>
+      <div>
         <style>{ppStyles}</style>
         <div className="pp-grid-hero">
           <div>
@@ -237,9 +222,9 @@ const ReferralPage = () => {
   }
 
   return (
-    <div style={styles.pageContainer}>
+    <div>
       <style>{ppStyles}</style>
-      
+
       {/* BREADCRUMB */}
       <nav style={styles.breadcrumb}>
         <button onClick={() => navigate('/dashboard')} style={styles.breadcrumbLink}>
@@ -249,7 +234,7 @@ const ReferralPage = () => {
         <span style={{ color: C.outlineVariant }}>/</span>
         <span style={{ color: C.onSurface, fontWeight: 600 }}>Referral Program</span>
       </nav>
-        
+
       {/* Hero Section */}
       <section className="pp-grid-hero">
         {/* Left Column: Header + Link Card */}
@@ -262,13 +247,13 @@ const ReferralPage = () => {
           {/* Referral Link Card */}
           <div className="pp-card pp-card-pad">
             <label className="pp-label">Your Unique Referral Link</label>
-            
+
             <div className="pp-input-wrap">
-              <input 
-                className="pp-input" 
-                readOnly 
-                type="text" 
-                value={referralLink} 
+              <input
+                className="pp-input"
+                readOnly
+                type="text"
+                value={referralLink}
               />
               <button className="pp-copy-btn" onClick={copyLink} title="Copy Link">
                 <span className="pp-material" style={{ color: copied ? C.successText : C.primary }}>
@@ -276,8 +261,7 @@ const ReferralPage = () => {
                 </span>
               </button>
             </div>
-            
-            {/* Increased margin-top to 75px for better spacing */}
+
             <div style={{ marginTop: '75px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px' }}>
               <span className="pp-share-label">Share via</span>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -300,18 +284,16 @@ const ReferralPage = () => {
           <div className="pp-illust-bg-1"></div>
           <div className="pp-illust-bg-2"></div>
           <div className="pp-illust-card">
-            
-            {/* ✅ UPDATED: Hoverable Voucher Card */}
             <div className="pp-voucher-mock">
               <div style={{ position: 'absolute', top: -20, right: -20, width: 100, height: 100, background: 'rgba(255,255,255,0.1)', borderRadius: '50%', filter: 'blur(30px)' }} />
               <span className="pp-material" style={{ fontSize: '48px', color: C.secondaryFixedDim, fontVariationSettings: "'FILL' 1", marginBottom: '8px', position: 'relative', zIndex: 2 }}>card_giftcard</span>
-              <h4 style={{ fontFamily: 'Poppins', sansSerif: true, fontSize: '24px', fontWeight: 600, margin: 0, position: 'relative', zIndex: 2 }}>{data?.rewardPerReferral || 500} PTS</h4>
+              <h4 style={{ fontFamily: "'Poppins', sans-serif", fontSize: '24px', fontWeight: 600, margin: 0, position: 'relative', zIndex: 2 }}>{data?.rewardPerReferral || 500} PTS</h4>
               <p style={{ fontSize: '14px', color: '#8aa4cf', margin: '4px 0 0', position: 'relative', zIndex: 2 }}>Referral Reward Voucher</p>
               <div className="pp-voucher-divider"></div>
             </div>
 
             <div style={{ textAlign: 'center' }}>
-              <p style={{ fontFamily: 'Poppins', sansSerif: true, fontSize: '24px', fontWeight: 600, color: C.primary, margin: '0 0 8px' }}>Invite. Redeem. Earn.</p>
+              <p style={{ fontFamily: "'Poppins', sans-serif", fontSize: '24px', fontWeight: 600, color: C.primary, margin: '0 0 8px' }}>Invite. Redeem. Earn.</p>
               <p style={{ fontSize: '16px', color: C.onSurfaceVariant, margin: 0 }}>PointPerks Institutional Rewards</p>
             </div>
           </div>
@@ -355,11 +337,10 @@ const ReferralPage = () => {
             <select style={{ background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer', color: C.primary, fontWeight: 700, fontFamily: 'Inter', fontSize: '14px' }}>
               <option>All Status</option>
               <option>Earned</option>
-              <option>Pending</option>
             </select>
           </div>
         </div>
-        
+
         {(!data?.referrals || data.referrals.length === 0) ? (
           <div style={{ padding: '48px 24px' }}>
             <EmptyState icon="pi-users" title="No referrals yet" body="Share your code or link above to start earning points." />
@@ -379,7 +360,7 @@ const ReferralPage = () => {
                 {data.referrals.map((r, i) => {
                   const isEarned = r.rewardPoints > 0;
                   const initials = r.referred?.name?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '??';
-                  
+
                   return (
                     <tr key={r._id || i} className="pp-tr">
                       <td className="pp-td">
@@ -422,12 +403,6 @@ const ReferralPage = () => {
           </div>
         )}
       </section>
-
-      <style>{`
-        @media (max-width: 768px) { 
-          div[style*="padding: 32px 48px"] { padding: 24px 16px !important; } 
-        }
-      `}</style>
     </div>
   );
 };

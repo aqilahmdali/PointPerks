@@ -1,16 +1,17 @@
-import React, { useState } from 'react';
+// UserLayout.jsx
+import React, { useRef, useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { logoutUser } from '../../store/slices/authSlice';
 import useAuth from '../../hooks/useAuth';
 import Footer from '../common/Footer';
 
-/* ─── Nav item definition ─── */
+/* ─── Nav items ─── */
 const NAV_ITEMS = [
   {
     label: 'Overview',
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
         <rect x="3" y="3" width="7" height="7" rx="1.5" />
         <rect x="14" y="3" width="7" height="7" rx="1.5" />
         <rect x="3" y="14" width="7" height="7" rx="1.5" />
@@ -20,9 +21,9 @@ const NAV_ITEMS = [
     path: '/dashboard',
   },
   {
-    label: 'My Redemptions',
+    label: 'Redemptions',
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="5" width="18" height="14" rx="2" />
         <path d="M3 10h18" />
         <path d="M8 15h.01M12 15h.01" />
@@ -31,9 +32,9 @@ const NAV_ITEMS = [
     path: '/my-redemptions',
   },
   {
-    label: 'Voucher List',
+    label: 'Vouchers',
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
         <rect x="9" y="3" width="6" height="4" rx="1" />
         <path d="M9 12h6M9 16h4" />
@@ -44,7 +45,7 @@ const NAV_ITEMS = [
   {
     label: 'Referral',
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="18" cy="5" r="3" />
         <circle cx="6" cy="12" r="3" />
         <circle cx="18" cy="19" r="3" />
@@ -55,6 +56,14 @@ const NAV_ITEMS = [
   },
 ];
 
+const LOGOUT_ICON = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+    <polyline points="16 17 21 12 16 7" />
+    <line x1="21" y1="12" x2="9" y2="12" />
+  </svg>
+);
+
 const ADMIN_VIEW_ICON = (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 20h9" />
@@ -62,399 +71,303 @@ const ADMIN_VIEW_ICON = (
   </svg>
 );
 
+const PROFILE_ICON = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
+
+const POINTS_ICON = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="12" y1="1" x2="12" y2="23" />
+    <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+  </svg>
+);
+
+/* ═══════ STYLES ═══════ */
+const STYLES = {
+  appShell: { display: 'flex', minHeight: '100vh', backgroundColor: '#f4f4f3', fontFamily: 'Inter, sans-serif' },
+  sidebar: { width: 240, flexShrink: 0, backgroundColor: '#ffffff', borderRight: '1px solid #e8e8e7', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto', zIndex: 20 },
+  brandBlock: { padding: '22px 20px 16px', borderBottom: '1px solid #f0f0f0' },
+  brandName: { fontSize: 16, fontWeight: 700, color: '#022448', fontFamily: 'Poppins, sans-serif', margin: 0 },
+  brandSubtitle: { fontSize: 11, fontWeight: 600, color: '#74777f', textTransform: 'uppercase', letterSpacing: '0.09em', fontFamily: 'Inter, sans-serif', margin: '4px 0 0 0' },
+  profileWrapper: { padding: '14px 12px', borderBottom: '1px solid #f0f0f0', position: 'relative' },
+  profilePill: { display: 'flex', alignItems: 'center', gap: 10, backgroundColor: '#f4f4f3', borderRadius: 999, padding: '8px 8px 8px 8px', cursor: 'pointer', transition: 'backgroundColor 0.15s ease' },
+  avatar: { width: 38, height: 38, borderRadius: '50%', backgroundColor: '#022448', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, fontFamily: 'Inter, sans-serif', flexShrink: 0, overflow: 'hidden' },
+  profileName: { fontSize: 13, fontWeight: 600, color: '#1a1c1c', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Inter, sans-serif' },
+  profileRole: { fontSize: 10, fontWeight: 500, color: '#6b7280', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: 'Inter, sans-serif' },
+  chevronIcon: { color: '#9ca3af', flexShrink: 0, display: 'flex', paddingLeft: 4, transition: 'transform 0.2s ease' },
+  dropdownMenu: { position: 'absolute', top: 'calc(100% + 6px)', left: 12, right: 12, backgroundColor: '#ffffff', border: '1px solid #e8e8e7', borderRadius: 10, boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.05)', zIndex: 50, overflow: 'hidden' },
+  dropdownItem: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 500, color: '#1a1c1c', textAlign: 'left', transition: 'background-color 0.15s' },
+  divider: { height: 1, backgroundColor: '#f0f0f0', margin: '4px 0' },
+  navContainer: { flex: 1, padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 2 },
+  roleSwitcherSection: { padding: '0px 10px 8px' },
+  roleSwitcherLabel: { fontSize: 10, fontWeight: 600, color: '#74777f', textTransform: 'uppercase', letterSpacing: '0.09em', padding: '0 14px', fontFamily: 'Inter, sans-serif', margin: '0 0 6px 0' },
+  roleSwitcherBtn: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '10px 14px', borderRadius: 10, border: '1.5px dashed #c4c6cf', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600, textAlign: 'left', backgroundColor: 'transparent', color: '#43474e', transition: 'all 0.15s ease' },
+  bottomSection: { padding: '10px 10px 16px', borderTop: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column', gap: 2 },
+};
+
+const MOBILE_STYLES = {
+  header: { position: 'fixed', top: 0, left: 0, right: 0, height: 60, backgroundColor: '#ffffff', borderBottom: '1px solid #e8e8e7', zIndex: 40, display: 'none', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px' },
+  mobilePill: { display: 'flex', alignItems: 'center', gap: 8, backgroundColor: '#f4f4f3', borderRadius: 999, padding: '6px 12px 6px 6px', cursor: 'pointer', transition: 'background-color 0.15s ease', border: 'none' },
+  mobileAvatar: { width: 32, height: 32, borderRadius: '50%', backgroundColor: '#022448', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, fontFamily: 'Inter, sans-serif', flexShrink: 0, overflow: 'hidden' },
+  mobileName: { fontSize: 12, fontWeight: 600, color: '#1a1c1c', margin: 0, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  dropdown: { position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 200, backgroundColor: '#ffffff', border: '1px solid #e8e8e7', borderRadius: 12, boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', zIndex: 50, overflow: 'hidden' },
+  dropdownItem: { display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 500, color: '#1a1c1c', textAlign: 'left', transition: 'background-color 0.15s' },
+  bottomNav: { position: 'fixed', bottom: 0, left: 0, right: 0, height: 65, backgroundColor: '#ffffff', borderTop: '1px solid #e8e8e7', zIndex: 40, display: 'none', alignItems: 'center', justifyContent: 'space-around', padding: '0 8px' },
+  bottomNavItem: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, flex: 1, height: '100%', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontSize: 10, fontWeight: 500, color: '#43474e', transition: 'color 0.15s ease', padding: 0 },
+};
+
 /* ════════════════════════════════════════════════════════ */
 const UserLayout = () => {
   const { user } = useAuth();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  
+  // Separate refs for desktop and mobile dropdowns
+  const desktopDropdownRef = useRef(null);
+  const mobileDropdownRef = useRef(null);
+  
+  const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
+    setDesktopMenuOpen(false);
+    setMobileMenuOpen(false);
     await dispatch(logoutUser());
     navigate('/landingpage');
   };
 
-  /* ─── Helper: is this nav item active? ─── */
+  /* Close dropdowns on outside click */
+  useEffect(() => {
+    const handler = (e) => {
+      if (desktopDropdownRef.current && !desktopDropdownRef.current.contains(e.target)) {
+        setDesktopMenuOpen(false);
+      }
+      if (mobileDropdownRef.current && !mobileDropdownRef.current.contains(e.target)) {
+        setMobileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
 
-  /* ─── Reusable nav item renderer ─── */
-  const NavItem = ({ item, onClick }) => {
+  const NavItem = ({ item, onClick, isLogout }) => {
     const active = isActive(item.path);
     const [hovered, setHovered] = useState(false);
-
     return (
       <button
         onClick={onClick || (() => navigate(item.path))}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          width: '100%',
-          padding: '10px 14px',
-          borderRadius: 10,
-          border: 'none',
-          cursor: 'pointer',
-          fontFamily: 'Inter, sans-serif',
-          fontSize: 14,
-          fontWeight: active ? 700 : 500,
-          textAlign: 'left',
-          transition: 'background-color 0.15s ease, color 0.15s ease',
-          backgroundColor: active
-            ? '#D4A017'
-            : hovered
-            ? 'rgba(0,0,0,0.05)'
-            : 'transparent',
-          color: active ? '#ffffff' : hovered ? '#1a1c1c' : '#43474e',
+          display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '10px 14px',
+          borderRadius: 10, border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+          fontSize: 14, fontWeight: 700, textAlign: 'left', transition: 'all 0.15s ease',
+          backgroundColor: isLogout ? (hovered ? 'rgba(186, 26, 26, 0.08)' : 'transparent') : active ? '#D4A017' : hovered ? 'rgba(0,0,0,0.05)' : 'transparent',
+          color: isLogout ? '#ba1a1a' : active ? '#ffffff' : hovered ? '#1a1c1c' : '#43474e',
         }}
       >
-        <span
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            opacity: active ? 1 : hovered ? 0.85 : 0.7,
-            flexShrink: 0,
-          }}
-        >
-          {item.icon}
-        </span>
+        <span style={{ display: 'flex', alignItems: 'center', opacity: isLogout ? (hovered ? 1 : 0.7) : active ? 1 : hovered ? 0.85 : 0.7, flexShrink: 0 }}>{item.icon}</span>
         {item.label}
       </button>
     );
   };
 
-  /* ════════════════ RENDER ════════════════ */
   return (
-    <div
-      className="pp-app-shell"
-      style={{
-        display: 'flex',
-        minHeight: '100vh',
-        backgroundColor: '#f4f4f3',
-        fontFamily: 'Inter, sans-serif',
-      }}
-    >
-      {/* ═══════ LEFT SIDEBAR ═══════ */}
-      <aside
-        className="pp-app-sidebar"
-        style={{
-          width: 210,
-          flexShrink: 0,
-          backgroundColor: '#ffffff',
-          borderRight: '1px solid #e8e8e7',
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-          overflowY: 'auto',
-          zIndex: 20,
-        }}
-      >
-        {/* User Profile Section */}
-        <div
-          style={{
-            padding: '16px 12px',
-            borderBottom: '1px solid #f0f0f0',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            position: 'relative',
-          }}
-        >
-          {/* Avatar */}
+    <div className="pp-app-shell" style={STYLES.appShell}>
+      <style>{`
+        @media (max-width: 768px) {
+          .pp-app-sidebar { display: none !important; }
+          .pp-mobile-header { display: flex !important; }
+          .pp-mobile-nav { display: flex !important; }
+          .pp-mobile-spacer-top { display: block !important; }
+          .pp-mobile-spacer-bottom { display: block !important; }
+          .pp-main-content { padding: 16px !important; padding-bottom: 20px !important; }
+          .pp-footer { display: none !important; }
+        }
+        @media (min-width: 769px) {
+          .pp-mobile-header, .pp-mobile-nav, .pp-mobile-spacer-top, .pp-mobile-spacer-bottom { display: none !important; }
+        }
+      `}</style>
+
+      {/* ═══ DESKTOP SIDEBAR ═══ */}
+      <aside className="pp-app-sidebar" style={STYLES.sidebar}>
+        <div style={STYLES.brandBlock}>
+          <p style={STYLES.brandName}>PointPerks</p>
+          <p style={STYLES.brandSubtitle}>Member Portal</p>
+        </div>
+        
+        {/* Desktop Profile Pill + Dropdown */}
+        <div ref={desktopDropdownRef} style={STYLES.profileWrapper}>
           <div
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              backgroundColor: '#022448',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 14,
-              fontWeight: 700,
-              fontFamily: 'Inter, sans-serif',
-              flexShrink: 0,
-              overflow: 'hidden',
-            }}
+            onClick={() => setDesktopMenuOpen(!desktopMenuOpen)}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#ebebea'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f4f4f3'}
+            style={STYLES.profilePill}
           >
-            {user?.avatar ? (
-              <img
-                src={user.avatar}
-                alt={user?.name}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            ) : (
-              user?.name?.[0]?.toUpperCase() || 'U'
-            )}
+            <div style={STYLES.avatar}>
+              {user?.avatar ? <img src={user.avatar} alt={user?.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : user?.name?.[0]?.toUpperCase() || 'U'}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={STYLES.profileName}>{user?.name || 'User'}</p>
+              <p style={STYLES.profileRole}>Member</p>
+            </div>
+            <span style={{ ...STYLES.chevronIcon, transform: desktopMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </span>
           </div>
 
-          {/* User Info + Dropdown Toggle */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p
-              style={{
-                fontSize: 16,
-                fontWeight: 600,
-                color: '#1a1c1c',
-                margin: 0,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {user?.name || 'User'}
-            </p>
-          </div>
-
-          {/* Dropdown Toggle Button */}
-          <button
-            onClick={() => setUserMenuOpen(!userMenuOpen)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 28,
-              height: 28,
-              borderRadius: 6,
-              border: 'none',
-              backgroundColor: userMenuOpen ? '#f0f0f0' : 'transparent',
-              cursor: 'pointer',
-              color: '#74777f',
-              transition: 'background-color 0.15s ease',
-              flexShrink: 0,
-              padding: 0,
-            }}
-            onMouseEnter={(e) => {
-              if (!userMenuOpen) e.currentTarget.style.backgroundColor = '#f9f9f9';
-            }}
-            onMouseLeave={(e) => {
-              if (!userMenuOpen) e.currentTarget.style.backgroundColor = 'transparent';
-            }}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-
-          {/* Dropdown Menu */}
-          {userMenuOpen && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                right: 0,
-                marginTop: 4,
-                backgroundColor: '#ffffff',
-                border: '1px solid #e8e8e7',
-                borderRadius: 8,
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
-                zIndex: 1000,
-                overflow: 'hidden',
-              }}
-            >
+          {desktopMenuOpen && (
+            <div style={STYLES.dropdownMenu}>
               <button
-                onClick={() => {
-                  navigate('/profile');
-                  setUserMenuOpen(false);
-                }}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  padding: '10px 14px',
-                  border: 'none',
-                  backgroundColor: 'transparent',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                  color: '#1a1c1c',
-                  fontFamily: 'Inter, sans-serif',
-                  transition: 'background-color 0.15s ease',
-                  borderBottom: '1px solid #f0f0f0',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f9f9f9')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                onClick={(e) => { e.stopPropagation(); navigate('/profile'); setDesktopMenuOpen(false); }}
+                style={STYLES.dropdownItem}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9f9f8'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
-                Profile
+                {PROFILE_ICON} Profile
               </button>
+              <div style={STYLES.divider} />
               <button
-                onClick={() => {
-                  navigate('/points-history');
-                  setUserMenuOpen(false);
-                }}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  padding: '10px 14px',
-                  border: 'none',
-                  backgroundColor: 'transparent',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  fontSize: 13,
-                  color: '#1a1c1c',
-                  fontFamily: 'Inter, sans-serif',
-                  transition: 'background-color 0.15s ease',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f9f9f9')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                onClick={(e) => { e.stopPropagation(); navigate('/points-history'); setDesktopMenuOpen(false); }}
+                style={STYLES.dropdownItem}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9f9f8'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
-                My Points
+                {POINTS_ICON} My Points
               </button>
             </div>
           )}
         </div>
 
-        {/* Main nav */}
-        <nav
-          className="pp-app-nav"
-          style={{
-            flex: 1,
-            padding: '12px 10px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-          }}
-        >
-          {NAV_ITEMS.map((item) => (
-            <NavItem key={item.path} item={item} />
-          ))}
+        <nav className="pp-app-nav" style={STYLES.navContainer}>
+          {NAV_ITEMS.map((item) => <NavItem key={item.path} item={item} />)}
         </nav>
 
-        {/* ═══════ ADMIN ONLY: Role Switcher Section ═══════ */}
         {user?.role?.toLowerCase() === 'admin' && (
-          <div
-            style={{
-              padding: '0px 10px 8px',
-            }}
-          >
-            <p
-              style={{
-                fontSize: 10,
-                fontWeight: 600,
-                color: '#74777f',
-                textTransform: 'uppercase',
-                letterSpacing: '0.09em',
-                padding: '0 14px',
-                marginBottom: 6,
-                fontFamily: 'Inter, sans-serif',
-              }}
-            >
-              Switch View
-            </p>
+          <div style={STYLES.roleSwitcherSection}>
+            <p style={STYLES.roleSwitcherLabel}>Switch View</p>
             <button
               onClick={() => navigate('/admin/dashboard')}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(2, 36, 72, 0.04)';
-                e.currentTarget.style.borderColor = '#022448';
-                e.currentTarget.style.color = '#022448';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.borderColor = '#c4c6cf';
-                e.currentTarget.style.color = '#43474e';
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: 10,
-                border: '1.5px dashed #c4c6cf',
-                cursor: 'pointer',
-                fontFamily: 'Inter, sans-serif',
-                fontSize: 13,
-                fontWeight: 600,
-                textAlign: 'left',
-                backgroundColor: 'transparent',
-                color: '#43474e',
-                transition: 'all 0.15s ease',
-              }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(2, 36, 72, 0.04)'; e.currentTarget.style.borderColor = '#022448'; e.currentTarget.style.color = '#022448'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.borderColor = '#c4c6cf'; e.currentTarget.style.color = '#43474e'; }}
+              style={STYLES.roleSwitcherBtn}
             >
-              <span style={{ opacity: 0.8, display: 'flex' }}>
-                {ADMIN_VIEW_ICON}
-              </span>
+              <span style={{ opacity: 0.8, display: 'flex' }}>{ADMIN_VIEW_ICON}</span>
               Admin Dashboard
             </button>
           </div>
         )}
 
-        {/* Bottom nav: Logout */}
-        <div
-          style={{
-            padding: '10px 10px 16px',
-            borderTop: '1px solid #f0f0f0',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-          }}
-        >
-          {/* Logout */}
-          <NavItem
-            item={{
-              label: 'Logout',
-              path: '__logout__',
-              icon: (
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-              ),
-            }}
-            onClick={handleLogout}
-          />
+        <div style={STYLES.bottomSection}>
+          <NavItem item={{ label: 'Logout', path: '__logout__', icon: LOGOUT_ICON }} onClick={handleLogout} isLogout />
         </div>
       </aside>
 
-      {/* ═══════ RIGHT: Header + Content ═══════ */}
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          minWidth: 0,
-        }}
-      >
-        {/* ─── Page Content ─── */}
-        <div
-          style={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            overflowY: 'auto',
-          }}
-        >
-          <main style={{ flex: 1, padding: '28px 28px 48px' }}>
-            <div className="pp-page-content">
-              <Outlet />
+      {/* ═══ MOBILE TOP HEADER ═══ */}
+      <header className="pp-mobile-header" style={MOBILE_STYLES.header}>
+        <p style={{ fontSize: 16, fontWeight: 700, color: '#022448', fontFamily: 'Poppins, sans-serif', margin: 0 }}>PointPerks</p>
+        
+        <div ref={mobileDropdownRef} style={{ position: 'relative' }}>
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#ebebea'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f4f4f3'}
+            style={MOBILE_STYLES.mobilePill}
+          >
+            <div style={MOBILE_STYLES.mobileAvatar}>
+              {user?.avatar ? <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : user?.name?.[0]?.toUpperCase() || 'U'}
             </div>
-          </main>
-          <Footer />
+            <p style={MOBILE_STYLES.mobileName}>{user?.name || 'User'}</p>
+          </button>
+
+          {mobileMenuOpen && (
+            <div style={MOBILE_STYLES.dropdown}>
+              <button
+                onClick={(e) => { e.stopPropagation(); navigate('/profile'); setMobileMenuOpen(false); }}
+                style={MOBILE_STYLES.dropdownItem}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9f9f8'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                {PROFILE_ICON} Profile
+              </button>
+              <div style={{ height: 1, backgroundColor: '#f0f0f0', margin: '4px 0' }} />
+              <button
+                onClick={(e) => { e.stopPropagation(); navigate('/points-history'); setMobileMenuOpen(false); }}
+                style={MOBILE_STYLES.dropdownItem}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9f9f8'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                {POINTS_ICON} My Points
+              </button>
+              
+              {user?.role?.toLowerCase() === 'admin' && (
+                <>
+                  <div style={{ height: 1, backgroundColor: '#f0f0f0', margin: '4px 0' }} />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); navigate('/admin/dashboard'); setMobileMenuOpen(false); }}
+                    style={MOBILE_STYLES.dropdownItem}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9f9f8'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    {ADMIN_VIEW_ICON} Admin View
+                  </button>
+                </>
+              )}
+              
+              <div style={{ height: 1, backgroundColor: '#f0f0f0', margin: '4px 0' }} />
+              <button
+                onClick={handleLogout}
+                style={{ ...MOBILE_STYLES.dropdownItem, color: '#ba1a1a' }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fff5f5'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                {LOGOUT_ICON} Logout
+              </button>
+            </div>
+          )}
         </div>
+      </header>
+
+      {/* ═══ MAIN CONTENT ═══ */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <div className="pp-mobile-spacer-top" style={{ height: 60 }} />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+          <main className="pp-main-content" style={{ flex: 1, padding: '28px 28px 48px' }}>
+            <div className="pp-page-content"><Outlet /></div>
+          </main>
+          <div className="pp-footer"><Footer /></div>
+        </div>
+        <div className="pp-mobile-spacer-bottom" style={{ height: 65 }} />
       </div>
+
+      {/* ═══ MOBILE BOTTOM NAV ═══ */}
+      <nav className="pp-mobile-nav" style={MOBILE_STYLES.bottomNav}>
+        {NAV_ITEMS.map((item) => {
+          const active = isActive(item.path);
+          return (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              style={{
+                ...MOBILE_STYLES.bottomNavItem,
+                color: active ? '#D4A017' : '#43474e',
+                fontWeight: active ? 700 : 500,
+              }}
+            >
+              <span style={{ display: 'flex', opacity: active ? 1 : 0.6 }}>{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 };

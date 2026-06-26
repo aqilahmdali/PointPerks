@@ -300,7 +300,7 @@ const VoucherDetail = () => {
     : 100;
 
   return (
-    <div style={styles.pageContainer}>
+    <div sfyle={styles.pageContainer}>
       <style>{ppStyles}</style>
       
       {/* BREADCRUMB */}

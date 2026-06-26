@@ -67,7 +67,7 @@ const LandingPage = () => {
 
   useEffect(() => {
     voucherAPI
-      .getAll({ featured: 'true', limit: 4 })
+      .getAll({ featured: 'true', limit: 8 })
       .then((res) => setFeatured(res.data.data || []))
       .catch(() => {});
     voucherAPI
@@ -152,34 +152,64 @@ const LandingPage = () => {
       color: C.onSurface,
       overflowX: 'hidden',
     }}>
-      {/* Nav */}
+      
+      {/* ═══════════ FIXED FLOATING NAVIGATION ═══════════ */}
       <nav style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 50,
+        position: 'fixed',
+        top: 20,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: 'calc(100% - 48px)',
+        maxWidth: 1100,
+        height: 64,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        maxWidth: 1280,
-        margin: '0 auto',
         padding: '0 24px',
-        height: 64,
-        background: C.surface,
-        borderBottom: `1px solid ${C.outlineVariant}`,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+        borderRadius: 16,
+        background: 'rgba(255, 255, 255, 0.85)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        border: '1px solid rgba(255, 255, 255, 0.6)',
+        boxShadow: '0 8px 32px rgba(2, 36, 72, 0.08)',
+        zIndex: 50,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
-          <span style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700, fontSize: 22, color: C.primary }}>
-            PointPerks
-          </span>
-          <div className="pp-nav-links" style={{ display: 'flex', gap: 24 }}>
-            <span className="pp-nav-link pp-nav-active" onClick={() => requireLogin('/voucherlist')}>Marketplace</span>
-            <span className="pp-nav-link" onClick={() => requireLogin('/myredemptions')}>Redemptions</span>
-          </div>
+        <span style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700, fontSize: 20, color: C.primary }}>
+          PointPerks
+        </span>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(0,0,0,0.05)', padding: '4px', borderRadius: 10 }}>
+          <button 
+            onClick={() => requireLogin('/vouchers')} 
+            style={{ all: 'unset', background: 'transparent', padding: '8px 16px', borderRadius: 8, color: C.primary, fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'Inter', transition: 'background 0.2s' }}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(2, 36, 72, 0.08)'}
+            onMouseLeave={(e) => e.target.style.background = 'transparent'}
+          >
+            Marketplace
+          </button>
+          <button 
+            onClick={() => requireLogin('/my-redemptions')} 
+            style={{ all: 'unset', background: 'transparent', padding: '8px 16px', borderRadius: 8, color: C.onSurfaceVariant, fontWeight: 500, fontSize: 14, cursor: 'pointer', fontFamily: 'Inter', transition: 'all 0.2s' }}
+            onMouseEnter={(e) => { e.target.style.background = 'rgba(2, 36, 72, 0.08)'; e.target.style.color = C.primary; }}
+            onMouseLeave={(e) => { e.target.style.background = 'transparent'; e.target.style.color = C.onSurfaceVariant; }}
+          >
+            My Vouchers
+          </button>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button className="pp-btn-outline-sm" onClick={() => navigate('/login')}>Log in</button>
-          <button className="pp-btn-solid-sm" onClick={() => navigate('/register')}>Sign up</button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button 
+            onClick={() => navigate('/login')} 
+            className="pp-nav-btn pp-nav-btn-outline"
+          >
+            Log in
+          </button>
+          <button 
+            onClick={() => navigate('/register')} 
+            className="pp-nav-btn pp-nav-btn-solid"
+          >
+            Sign up
+          </button>
         </div>
       </nav>
 
@@ -190,7 +220,7 @@ const LandingPage = () => {
         display: 'flex',
         alignItems: 'center',
         overflow: 'hidden',
-        padding: '32px 24px 96px',
+        padding: '120px 24px 96px', // Increased top padding for floating nav
       }}>
         <div className="pp-hero-grid" style={{
           maxWidth: 1280,
@@ -257,7 +287,7 @@ const LandingPage = () => {
                 background: `linear-gradient(135deg, ${C.secondary} 0%, ${C.tertiary} 100%)`,
                 color: '#fff',
                 padding: 24,
-                borderRadius: 12,
+                borderRadius: 16,
                 boxShadow: '0 20px 60px -12px rgba(0,0,0,0.3)',
                 transform: 'rotate(-6deg)',
               }}
@@ -287,7 +317,7 @@ const LandingPage = () => {
                 background: VOUCHER_GRADIENT,
                 color: C.onPrimary,
                 padding: 24,
-                borderRadius: 12,
+                borderRadius: 16,
                 boxShadow: '0 20px 60px -12px rgba(0,0,0,0.3)',
                 transform: 'rotate(3deg)',
               }}
@@ -375,33 +405,101 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Featured Vouchers */}
+      {/* ═══════════ REDESIGNED FEATURED VOUCHERS ═══════════ */}
       {featured.length > 0 && (
         <section className="pp-reveal" style={{ maxWidth: 1280, margin: '0 auto', padding: '96px 24px' }}>
           <div style={{ textAlign: 'center', marginBottom: 64 }}>
             <h2 style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600, fontSize: 32, color: C.primary, marginBottom: 12 }}>Popular right now</h2>
             <p style={{ color: C.onSurfaceVariant, fontSize: 16 }}>Featured vouchers ready for instant redemption.</p>
           </div>
-          <div className="pp-feat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 32 }}>
+          
+          <div className="pp-feat-grid" style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', // Made responsive
+            gap: 28 
+          }}>
             {featured.map((v) => (
               <div
                 key={v._id}
                 className="pp-feat-card pp-tilt-card"
-                onClick={() => navigate('/register')}
+                onClick={() => requireLogin('/vouchers')}
                 onMouseMove={handleCardMouseMove}
                 onMouseLeave={handleCardMouseLeave}
               >
-                <div style={{ background: VOUCHER_GRADIENT, padding: '28px 16px', textAlign: 'center' }}>
-                  <div style={{ fontFamily: "'Poppins', sans-serif", fontSize: 28, fontWeight: 800, color: C.secondaryFixed }}>
-                    {formatDiscount(v.discountType, v.discountValue)}
+                <div style={{ 
+                  padding: '28px 24px 20px', 
+                  background: `linear-gradient(160deg, ${C.primary} 0%, ${C.primaryContainer} 100%)`, 
+                  borderBottom: `1px solid rgba(255,255,255,0.1)`,
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}>
+                  {/* Background decoration */}
+                  <div style={{ position: 'absolute', top: '-50%', right: '-30%', width: 140, height: 140, background: 'rgba(255,255,255,0.05)', borderRadius: '50%', filter: 'blur(40px)' }} />
+                  
+                  <div style={{ 
+                    background: 'rgba(255,255,255,0.1)', 
+                    backdropFilter: 'blur(8px)', 
+                    padding: '8px 20px', 
+                    borderRadius: 999, 
+                    marginBottom: 16,
+                    border: '1px solid rgba(255,255,255,0.2)'
+                  }}>
+                    <span style={{ fontFamily: "'Poppins', sans-serif", fontSize: 28, fontWeight: 800, color: C.secondaryFixed }}>
+                      {formatDiscount(v.discountType, v.discountValue)}
+                    </span>
+                  </div>
+                  
+                  {/* Merchant Icon/Initial */}
+                  <div style={{
+                    width: 48, height: 48, borderRadius: '50%',
+                    background: 'rgba(255,255,255,0.15)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: '2px solid rgba(255,255,255,0.3)',
+                    marginBottom: 8
+                  }}>
+                    {v.image ? (
+                      <img src={v.image} alt="merchant" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                    ) : (
+                      <span style={{ ...ms(24, 1), color: '#fff' }}>storefront</span>
+                    )}
                   </div>
                 </div>
-                <div style={{ padding: 16 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: C.onSurface }}>{v.title}</div>
-                  <div style={{ fontSize: 13, color: C.onSurfaceVariant, marginTop: 4 }}>{v.merchant}</div>
-                  <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: C.ctaGold, fontWeight: 600 }}>
-                    <span style={ms(16, 1)}>stars</span>
-                    {v.pointsCost ?? 100} pts
+
+                <div style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                  <h3 style={{ fontWeight: 700, fontSize: 16, color: C.onSurface, margin: '0 0 4px', lineHeight: 1.3, minHeight: 44, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: '2', textOverflow: 'ellipsis' }}>
+                    {v.title}
+                  </h3>
+                  <p style={{ fontSize: 13, color: C.outline, margin: '0 0 20px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    {v.merchant}
+                  </p>
+                  
+                  <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ ...ms(18, 1), color: C.ctaGold }}>stars</span>
+                      <span style={{ fontWeight: 700, color: C.primary, fontSize: 15, fontFamily: "'Poppins', sans-serif" }}>
+                        {v.pointsCost ?? 100} pts
+                      </span>
+                    </div>
+                    <button 
+                      style={{ 
+                        fontSize: 12, 
+                        fontWeight: 700, 
+                        color: C.primary, 
+                        background: C.surfaceHigh, 
+                        border: 'none', 
+                        padding: '8px 16px', 
+                        borderRadius: 8, 
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = C.primarySoft; e.currentTarget.style.color = C.primary; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = C.surfaceHigh; e.currentTarget.style.color = C.primary; }}
+                    >
+                      Claim
+                    </button>
                   </div>
                 </div>
               </div>
@@ -435,7 +533,7 @@ const LandingPage = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 {[
                   { label: 'Points Balance', value: '12,450 pts' },
-                  { label: 'Cash Value', value: '$1,245.00' },
+                  { label: 'Cash Value', value: 'RM1245.00'},
                 ].map((item) => (
                   <div key={item.label} className="pp-progress-stat">
                     <p style={{ fontSize: 12, color: C.onSurfaceVariant, margin: '0 0 4px' }}>{item.label}</p>
@@ -570,9 +668,9 @@ const LandingPage = () => {
         </div>
       </footer>
 
-      {/* Styles */}
+      {/* ═══════════ STYLES ═══════════ */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
         .material-symbols-outlined {
@@ -601,49 +699,56 @@ const LandingPage = () => {
           transform: translateY(0);
         }
 
-        .pp-nav-link {
-          font-size: 16px;
-          color: ${C.onSurfaceVariant};
-          cursor: pointer;
-          transition: color 0.15s;
-          padding-bottom: 4px;
-        }
-        .pp-nav-link:hover { color: ${C.primary}; }
-        .pp-nav-active {
-          color: ${C.primary} !important;
-          font-weight: 700;
-          border-bottom: 2px solid ${C.primary};
-        }
-
-        .pp-btn-solid-sm {
+        /* ══════ NEW NAV STYLES ══════ */
+        .pp-nav-btn {
           height: 40px;
           padding: 0 24px;
-          border-radius: 8px;
-          background: ${C.primary};
-          color: ${C.onPrimary};
-          border: none;
+          border-radius: 10px;
           font-family: 'Inter', sans-serif;
-          font-weight: 500;
+          font-weight: 600;
           font-size: 14px;
           cursor: pointer;
-          transition: opacity 0.2s;
+          border: none;
+          transition: all 0.2s ease;
         }
-        .pp-btn-solid-sm:hover { opacity: 0.9; }
-        .pp-btn-outline-sm {
-          height: 40px;
-          padding: 0 24px;
-          border-radius: 8px;
+        .pp-nav-btn-outline {
           background: transparent;
           color: ${C.primary};
-          border: 1px solid ${C.outlineVariant};
-          font-family: 'Inter', sans-serif;
-          font-weight: 500;
-          font-size: 14px;
-          cursor: pointer;
-          transition: background 0.2s;
+          border: 1.5px solid ${C.outlineVariant};
         }
-        .pp-btn-outline-sm:hover { background: ${C.surfaceContainer}; }
+        .pp-nav-btn-outline:hover {
+          background: ${C.surfaceHigh};
+          border-color: ${C.primary};
+        }
+        .pp-nav-btn-solid {
+          background: ${C.primary};
+          color: ${C.onPrimary};
+          box-shadow: 0 2px 8px rgba(2, 36, 72, 0.15);
+        }
+        .pp-nav-btn-solid:hover {
+          background: ${C.primaryContainer};
+          box-shadow: 0 4px 12px rgba(2, 36, 72, 0.25);
+          transform: translateY(-1px);
+        }
 
+        /* ══════ NEW FEATURED VOUCHER STYLES ══════ */
+        .pp-feat-card {
+          background: ${C.surfaceLowest};
+          border-radius: 20px;
+          border: 1px solid ${C.outlineVariant};
+          box-shadow: 0px 4px 24px rgba(30,58,95,0.05);
+          overflow: hidden;
+          cursor: pointer;
+          display: 'flex',
+          flex-direction: 'column',
+          transition: box-shadow 0.3s ease, transform 0.3s ease;
+        }
+        .pp-feat-card:hover {
+          box-shadow: 0 20px 40px rgba(30,58,95,0.12),
+                      0 0 0px 1px rgba(212,160,23,0.2);
+        }
+
+        /* ══════ LEGACY STYLES (Unchanged) ══════ */
         .pp-badge {
           display: inline-flex;
           align-items: center;
@@ -730,23 +835,10 @@ const LandingPage = () => {
           gap: 8px;
           color: ${C.primary};
           font-weight: 700;
-          font-size: 14px;
+          fontSize: 14px;
           transition: gap 0.3s;
         }
         .pp-cat-card:hover .pp-cat-btn { gap: 16px; }
-
-        .pp-feat-card {
-          background: ${C.surfaceLowest};
-          border-radius: 16px;
-          border: 1px solid ${C.outlineVariant};
-          box-shadow: 0px 4px 20px rgba(30,58,95,0.04);
-          overflow: hidden;
-          cursor: pointer;
-        }
-        .pp-feat-card:hover {
-          box-shadow: 0px 20px 40px rgba(30,58,95,0.12),
-                      0px 0px 0px 1px ${C.ctaGold}30;
-        }
 
         .pp-progress-card {
           background: ${C.surfaceLowest};
@@ -773,7 +865,7 @@ const LandingPage = () => {
           border: none;
           font-family: 'Poppins', sans-serif;
           font-weight: 600;
-          font-size: 18px;
+          fontSize: 18px;
           cursor: pointer;
           box-shadow: 0 8px 24px rgba(212,160,23,0.3);
           transition: all 0.2s;
@@ -788,7 +880,7 @@ const LandingPage = () => {
           border-radius: 999px;
           font-family: 'Poppins', sans-serif;
           font-weight: 600;
-          font-size: 18px;
+          fontSize: 18px;
           cursor: pointer;
           transition: background 0.2s;
         }
@@ -808,12 +900,9 @@ const LandingPage = () => {
           .pp-value-grid { grid-template-columns: 1fr !important; }
           .pp-value-visual { order: 2; }
           .pp-value-text { order: 1; }
-          .pp-cat-grid { grid-template-columns: repeat(2, 1fr) !important; }
-          .pp-feat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .pp-cat-grid { grid-templateColumns: repeat(2, 1fr) !important; }
         }
         @media (max-width: 768px) {
-          .pp-nav-links { display: none !important; }
-          .pp-cat-grid { grid-template-columns: 1fr !important; }
           .pp-feat-grid { grid-template-columns: 1fr !important; }
           .pp-steps-grid { grid-template-columns: 1fr !important; gap: 32px !important; }
           .pp-cta-card { padding: 48px 24px !important; border-radius: 16px !important; }

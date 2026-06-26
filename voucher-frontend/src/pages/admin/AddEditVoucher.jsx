@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { voucherAPI } from '../../services/api';
@@ -84,6 +84,38 @@ const AddEditVoucher = () => {
   const [saving, setSaving]   = useState(false);
   const [loading, setLoading] = useState(isEdit);
 
+  /* ── Fixed sidebar positioning ── */
+  const sidebarPlaceholderRef = useRef(null);
+  const [fixedStyle, setFixedStyle] = useState(null);
+
+  useLayoutEffect(() => {
+    if (loading) return;
+
+    const calc = () => {
+      if (!sidebarPlaceholderRef.current) return;
+      const r = sidebarPlaceholderRef.current.getBoundingClientRect();
+      setFixedStyle((prev) => {
+        const next = {
+          position: 'fixed',
+          top: 28,
+          left: r.left,
+          width: 340,
+          zIndex: 20,
+        };
+        if (prev && prev.left === next.left && prev.top === next.top && prev.width === next.width) return prev;
+        return next;
+      });
+    };
+
+    calc();
+    window.addEventListener('resize', calc);
+    window.addEventListener('scroll', calc, { passive: true, capture: true });
+    return () => {
+      window.removeEventListener('resize', calc);
+      window.removeEventListener('scroll', calc, { capture: true });
+    };
+  }, [loading]);
+
   useEffect(() => {
     if (isEdit) {
       voucherAPI.getOne(id)
@@ -131,6 +163,98 @@ const AddEditVoucher = () => {
     return `EXP: ${d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}`;
   };
 
+  /* ── Sidebar content (shared between placeholder & fixed) ── */
+  const renderSidebarContent = () => (
+    <>
+      {/* Live Preview Card */}
+      <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e2e2', borderRadius: 14, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.07)' }}>
+
+        {/* Preview Header */}
+        <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e2e2e2', backgroundColor: '#f4f4f3' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#74777f', textTransform: 'uppercase', letterSpacing: '0.09em', fontFamily: 'Inter, sans-serif' }}>Live Preview</span>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#22c55e', display: 'inline-block', animation: 'pp-pulse-dot 2s ease-in-out infinite' }} />
+        </div>
+
+        {/* Preview Content */}
+        <div style={{ padding: 18, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+
+          {/* Voucher Graphic */}
+          <div style={{
+            width: '100%', borderRadius: 12,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.14)', padding: 18,
+            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+            aspectRatio: '1.8 / 1',
+            background: 'linear-gradient(135deg, #022448 0%, #1e3a5f 100%)',
+            color: '#ffffff', position: 'relative', overflow: 'hidden', boxSizing: 'border-box',
+          }}>
+            <div style={{ position: 'absolute', right: '25%', top: 0, bottom: 0, borderLeft: '2px dashed rgba(255,255,255,0.18)' }} />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 22, opacity: 0.5 }}>loyalty</span>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 10, opacity: 0.65, fontWeight: 600, letterSpacing: '0.06em', fontFamily: 'Inter, sans-serif' }}>REWARD VALUE</div>
+                <div style={{ fontSize: 22, fontFamily: 'Poppins, sans-serif', fontWeight: 700, lineHeight: 1.2 }}>{getValueDisplay()}</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <div style={{ maxWidth: '60%' }}>
+                <div style={{ fontSize: 10, opacity: 0.65, textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 2, fontFamily: 'Inter, sans-serif' }}>{getCategoryLabel()}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Inter, sans-serif' }}>
+                  {form.title || 'Title of Reward Voucher'}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+                <span style={{ backgroundColor: '#ffc641', color: '#5c4300', fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4, fontFamily: 'Inter, sans-serif' }}>
+                  {(form.pointsCost || 0).toLocaleString()} PTS
+                </span>
+                <span style={{ fontSize: 8, opacity: 0.55, fontFamily: 'Inter, sans-serif' }}>{getExpiryDisplay()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Stock summary */}
+          <div style={{ width: '100%', marginTop: 14, padding: '10px 14px', borderRadius: 8, backgroundColor: '#f7f7f6', border: '1px solid #ebebea', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#74777f' }}>inventory_2</span>
+              <span style={{ fontSize: 12, color: '#43474e', fontFamily: 'Inter, sans-serif', fontWeight: 500 }}>Stock limit</span>
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 700, color: form.totalLimit ? '#022448' : '#74777f', fontFamily: 'Inter, sans-serif' }}>
+              {form.totalLimit ? form.totalLimit.toLocaleString() : 'Unlimited'}
+            </span>
+          </div>
+
+          <p style={{ textAlign: 'center', fontSize: 11, color: '#74777f', fontStyle: 'italic', marginTop: 14, lineHeight: 1.55, fontFamily: 'Inter, sans-serif' }}>
+            "Institutional vouchers are generated with encrypted QR codes upon redemption."
+          </p>
+        </div>
+      </div>
+
+      {/* Point Valuation Tip */}
+      <div style={{ borderRadius: 12, padding: 18, display: 'flex', gap: 14, backgroundColor: 'rgba(30,58,95,0.05)', border: '1px solid rgba(30,58,95,0.11)' }}>
+        <span className="material-symbols-outlined" style={{ color: '#022448', fontSize: 20, flexShrink: 0, marginTop: 1 }}>info</span>
+        <div>
+          <h5 style={{ fontSize: 13, fontWeight: 700, color: '#022448', margin: '0 0 5px', fontFamily: 'Inter, sans-serif' }}>Point Valuation Tip</h5>
+          <p style={{ fontSize: 12, color: '#43474e', lineHeight: 1.7, fontFamily: 'Inter, sans-serif', margin: 0 }}>
+            Most successful redemptions follow a 1:50 ratio (RM1 = 50 points). Consider seasonal multipliers to drive engagement.
+          </p>
+        </div>
+      </div>
+
+      {/* Low stock warning */}
+      {form.totalLimit !== null && form.totalLimit < 100 && (
+        <div style={{ borderRadius: 12, padding: '16px 18px', display: 'flex', gap: 12, alignItems: 'flex-start', backgroundColor: 'rgba(186,26,26,0.05)', border: '1px solid rgba(186,26,26,0.15)' }}>
+          <span className="material-symbols-outlined" style={{ color: '#ba1a1a', fontSize: 18, flexShrink: 0, marginTop: 1 }}>warning</span>
+          <p style={{ fontSize: 12, color: '#7a1010', lineHeight: 1.6, fontFamily: 'Inter, sans-serif', fontWeight: 500, margin: 0 }}>
+            Low stock limit set. Vouchers with fewer than 100 units may sell out quickly during campaigns.
+          </p>
+        </div>
+      )}
+    </>
+  );
+
   if (loading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '128px 0', gap: 12 }}>
@@ -147,10 +271,38 @@ const AddEditVoucher = () => {
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pp-pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .fixed-sidebar-scroll::-webkit-scrollbar { width: 4px; }
+        .fixed-sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+        .fixed-sidebar-scroll::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+        .fixed-sidebar-scroll::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
       `}</style>
 
       {/* ── Outer wrapper: title + grid stacked with consistent gap ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+        {/* Breadcrumb */}
+        <nav style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 13, fontWeight: 500, color: '#43474e' }}>
+          <button
+            onClick={() => navigate('/dashboard')}
+            style={{ background: 'none', border: 'none', color: '#022448', fontWeight: 600, cursor: 'pointer', padding: 0, fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'Inter, sans-serif', transition: 'color 0.15s' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#1e3a5f'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = '#022448'; }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 16, lineHeight: 1 }}>home</span>
+            Home
+          </button>
+          <span style={{ color: '#c4c6cf' }}>/</span>
+          <button
+            onClick={() => navigate('/admin/vouchers')}
+            style={{ background: 'none', border: 'none', color: '#022448', fontWeight: 600, cursor: 'pointer', padding: 0, fontSize: 13, fontFamily: 'Inter, sans-serif', transition: 'color 0.15s' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#1e3a5f'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = '#022448'; }}
+          >
+            Vouchers
+          </button>
+          <span style={{ color: '#c4c6cf' }}>/</span>
+          <span style={{ color: '#1a1c1c', fontWeight: 600 }}>{isEdit ? 'Edit Voucher' : 'Add Voucher'}</span>
+        </nav>
 
         {/* ── Page title ── */}
         <div>
@@ -164,7 +316,7 @@ const AddEditVoucher = () => {
           </p>
         </div>
 
-        {/* ── Main Grid: form (left) + sticky sidebar (right) ── */}
+        {/* ── Main Grid: form (left) + sidebar placeholder (right) ── */}
         <div style={{ display: 'flex', flexDirection: 'row', gap: 28, alignItems: 'flex-start' }}>
 
           {/* ═══ LEFT: Form ═══ */}
@@ -317,110 +469,44 @@ const AddEditVoucher = () => {
             </form>
           </div>{/* end LEFT */}
 
-          {/* ═══ RIGHT: Sticky Preview Sidebar ═══ */}
-          <div style={{
-            width: 340,
-            flexShrink: 0,
-            position: 'sticky',
-            top: 28,               /* matches AdminLayout main padding-top */
-            alignSelf: 'flex-start',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 16,
-          }}>
-
-            {/* Live Preview Card */}
-            <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e2e2', borderRadius: 14, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.07)' }}>
-
-              {/* Preview Header */}
-              <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e2e2e2', backgroundColor: '#f4f4f3' }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#74777f', textTransform: 'uppercase', letterSpacing: '0.09em', fontFamily: 'Inter, sans-serif' }}>Live Preview</span>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#22c55e', display: 'inline-block', animation: 'pp-pulse-dot 2s ease-in-out infinite' }} />
-              </div>
-
-              {/* Preview Content */}
-              <div style={{ padding: 18, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-
-                {/* Voucher Graphic */}
-                <div style={{
-                  width: '100%', borderRadius: 12,
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.14)', padding: 18,
-                  display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-                  aspectRatio: '1.8 / 1',
-                  background: 'linear-gradient(135deg, #022448 0%, #1e3a5f 100%)',
-                  color: '#ffffff', position: 'relative', overflow: 'hidden', boxSizing: 'border-box',
-                }}>
-                  <div style={{ position: 'absolute', right: '25%', top: 0, bottom: 0, borderLeft: '2px dashed rgba(255,255,255,0.18)' }} />
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: 22, opacity: 0.5 }}>loyalty</span>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 10, opacity: 0.65, fontWeight: 600, letterSpacing: '0.06em', fontFamily: 'Inter, sans-serif' }}>REWARD VALUE</div>
-                      <div style={{ fontSize: 22, fontFamily: 'Poppins, sans-serif', fontWeight: 700, lineHeight: 1.2 }}>{getValueDisplay()}</div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                    <div style={{ maxWidth: '60%' }}>
-                      <div style={{ fontSize: 10, opacity: 0.65, textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 2, fontFamily: 'Inter, sans-serif' }}>{getCategoryLabel()}</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Inter, sans-serif' }}>
-                        {form.title || 'Title of Reward Voucher'}
-                      </div>
-                    </div>
-                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
-                      <span style={{ backgroundColor: '#ffc641', color: '#5c4300', fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4, fontFamily: 'Inter, sans-serif' }}>
-                        {(form.pointsCost || 0).toLocaleString()} PTS
-                      </span>
-                      <span style={{ fontSize: 8, opacity: 0.55, fontFamily: 'Inter, sans-serif' }}>{getExpiryDisplay()}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Stock summary */}
-                <div style={{ width: '100%', marginTop: 14, padding: '10px 14px', borderRadius: 8, backgroundColor: '#f7f7f6', border: '1px solid #ebebea', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#74777f' }}>inventory_2</span>
-                    <span style={{ fontSize: 12, color: '#43474e', fontFamily: 'Inter, sans-serif', fontWeight: 500 }}>Stock limit</span>
-                  </div>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: form.totalLimit ? '#022448' : '#74777f', fontFamily: 'Inter, sans-serif' }}>
-                    {form.totalLimit ? form.totalLimit.toLocaleString() : 'Unlimited'}
-                  </span>
-                </div>
-
-                <p style={{ textAlign: 'center', fontSize: 11, color: '#74777f', fontStyle: 'italic', marginTop: 14, lineHeight: 1.55, fontFamily: 'Inter, sans-serif' }}>
-                  "Institutional vouchers are generated with encrypted QR codes upon redemption."
-                </p>
-              </div>
-            </div>
-
-            {/* Point Valuation Tip */}
-            <div style={{ borderRadius: 12, padding: 18, display: 'flex', gap: 14, backgroundColor: 'rgba(30,58,95,0.05)', border: '1px solid rgba(30,58,95,0.11)' }}>
-              <span className="material-symbols-outlined" style={{ color: '#022448', fontSize: 20, flexShrink: 0, marginTop: 1 }}>info</span>
-              <div>
-                <h5 style={{ fontSize: 13, fontWeight: 700, color: '#022448', margin: '0 0 5px', fontFamily: 'Inter, sans-serif' }}>Point Valuation Tip</h5>
-                <p style={{ fontSize: 12, color: '#43474e', lineHeight: 1.7, fontFamily: 'Inter, sans-serif', margin: 0 }}>
-                  Most successful redemptions follow a 1:50 ratio (RM1 = 50 points). Consider seasonal multipliers to drive engagement.
-                </p>
-              </div>
-            </div>
-
-            {/* Low stock warning */}
-            {form.totalLimit !== null && form.totalLimit < 100 && (
-              <div style={{ borderRadius: 12, padding: '16px 18px', display: 'flex', gap: 12, alignItems: 'flex-start', backgroundColor: 'rgba(186,26,26,0.05)', border: '1px solid rgba(186,26,26,0.15)' }}>
-                <span className="material-symbols-outlined" style={{ color: '#ba1a1a', fontSize: 18, flexShrink: 0, marginTop: 1 }}>warning</span>
-                <p style={{ fontSize: 12, color: '#7a1010', lineHeight: 1.6, fontFamily: 'Inter, sans-serif', fontWeight: 500, margin: 0 }}>
-                  Low stock limit set. Vouchers with fewer than 100 units may sell out quickly during campaigns.
-                </p>
+          {/* ═══ RIGHT: Placeholder to reserve grid space ═══ */}
+          <div
+            ref={sidebarPlaceholderRef}
+            style={{
+              width: 340,
+              flexShrink: 0,
+              visibility: fixedStyle ? 'hidden' : 'visible',
+            }}
+          >
+            {!fixedStyle && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {renderSidebarContent()}
               </div>
             )}
-
-          </div>{/* end RIGHT sidebar */}
+          </div>
 
         </div>{/* end Main Grid */}
 
       </div>{/* end Outer wrapper */}
+
+      {/* ═══ FIXED SIDEBAR (portaled out of grid flow) ═══ */}
+      {fixedStyle && (
+        <div
+          className="fixed-sidebar-scroll"
+          style={{
+            ...fixedStyle,
+            maxHeight: 'calc(100vh - 56px)',
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+            paddingTop: 75,
+            paddingBottom: 28,
+          }}
+        >
+          {renderSidebarContent()}
+        </div>
+      )}
     </>
   );
 };
