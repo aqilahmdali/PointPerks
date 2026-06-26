@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { setCredentials } from '../../store/slices/authSlice';
-import { authAPI } from '../../services/api';
+import { authAPI, referralAPI } from '../../services/api';
 
 /* ── Design tokens ───────────────────────────────────────────────── */
 const C = {
@@ -64,9 +64,21 @@ const AuthCallback = () => {
 
     authAPI
       .getMe()
-      .then((res) => {
-        dispatch(setCredentials({ token, user: res.data.user }));
-        if (res.data.user.role === 'admin') {
+      .then(async (res) => {
+        const user = res.data.user;
+        dispatch(setCredentials({ token, user }));
+
+        const pendingCode = localStorage.getItem('pendingReferralCode');
+        if (pendingCode) {
+          localStorage.removeItem('pendingReferralCode');
+          try {
+            await referralAPI.apply(pendingCode);
+          } catch (err) {
+            console.error('Referral apply failed:', err?.response?.data?.message || err.message);
+          }
+        }
+
+        if (user.role === 'admin') {
           navigate('/admin/dashboard');
         } else {
           navigate('/dashboard');

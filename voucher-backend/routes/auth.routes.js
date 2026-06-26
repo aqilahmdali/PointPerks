@@ -17,10 +17,6 @@ router.get('/me', protect, asyncHandler(getMe));
 
 // Google OAuth
 router.get('/google',
-  (req, res, next) => {
-    if (req.query.ref) req.session.pendingReferralCode = req.query.ref.toUpperCase();
-    next();
-  },
   passport.authenticate('google', {
     scope: ['profile', 'email'],
     prompt: 'select_account',

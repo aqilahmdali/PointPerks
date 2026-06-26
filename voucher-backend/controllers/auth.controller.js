@@ -33,13 +33,17 @@ const register = async (req, res) => {
     }],
   });
 
-  // Process referral if code provided
+  // Process referral if code provided — wrapped so a referral error never breaks registration
   if (referralCode) {
-    const referrer = await User.findOne({ referralCode: referralCode.toUpperCase() });
-    if (referrer && referrer._id.toString() !== user._id.toString()) {
-      user.referredBy = referrer._id;
-      await user.save();
-      await processReferral(referrer._id, user._id, referralCode.toUpperCase());
+    try {
+      const referrer = await User.findOne({ referralCode: referralCode.toUpperCase() });
+      if (referrer && referrer._id.toString() !== user._id.toString()) {
+        await processReferral(referrer._id, user._id, referralCode.toUpperCase());
+        user.referredBy = referrer._id;
+        await user.save();
+      }
+    } catch (err) {
+      console.error('Referral processing failed during registration:', err.message);
     }
   }
 

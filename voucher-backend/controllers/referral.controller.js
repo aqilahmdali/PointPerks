@@ -1,6 +1,7 @@
 const User = require('../models/User.model');
 const Referral = require('../models/Referral.model');
 const { sendSuccess, sendError } = require('../utils/response.util');
+const { processReferral } = require('../services/points.service');
 
 /**
  * GET /api/referrals/my
@@ -68,4 +69,30 @@ const getAllReferrals = async (req, res) => {
   }, 'All referrals fetched');
 };
 
-module.exports = { getMyReferrals, validateReferralCode, getAllReferrals };
+/**
+ * POST /api/referrals/apply
+ * Apply a referral code to the current user (used after Google signup)
+ */
+const applyReferral = async (req, res) => {
+  const { referralCode } = req.body;
+  if (!referralCode) return sendError(res, 'Referral code required', 400);
+
+  const user = await User.findById(req.user._id);
+  if (user.referredBy) return sendError(res, 'Referral already applied', 400);
+
+  const referrer = await User.findOne({ referralCode: referralCode.toUpperCase(), isActive: true });
+  if (!referrer || referrer._id.toString() === user._id.toString()) {
+    return sendError(res, 'Invalid referral code', 400);
+  }
+
+  // Process points first — only persist referredBy after it succeeds so the
+  // user can retry if something goes wrong (e.g. a transient DB error).
+  await processReferral(referrer._id, user._id, referralCode.toUpperCase());
+
+  user.referredBy = referrer._id;
+  await user.save();
+
+  return sendSuccess(res, {}, 'Referral applied successfully');
+};
+
+module.exports = { getMyReferrals, validateReferralCode, getAllReferrals, applyReferral };
