@@ -1,611 +1,664 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import useAuth from '../../hooks/useAuth';
-import { voucherAPI, redemptionAPI } from '../../services/api';
-import { formatDiscount } from '../../utils/helpers';
+import { userAPI, voucherAPI, redemptionAPI, analyticsAPI } from '../../services/api';
 
-/* ── Design tokens ─────────────────────────────────────────────── */
+/* ═════════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS & HELPERS
+════════════════════════════════════════════════════════════════════ */
 const C = {
   primary: '#022448',
-  primaryHover: '#0a3a6b',
   primaryContainer: '#1e3a5f',
-  brandGold: '#D4A017',
-  secondary: '#795900',
-  secondaryContainer: '#ffc641',
+  primarySoft: '#d5e3ff',
+  gold: '#ffc641',
+  goldDark: '#795900',
+  goldSoft: '#fef3c7',
   surface: '#f9f9f8',
-  surfaceLow: '#f4f4f3',
-  surfaceContainer: '#eeeeed',
-  surfaceContainerHighest: '#e2e2e2',
-  surfaceLowest: '#ffffff',
-  onSurface: '#1a1c1c',
-  onSurfaceVariant: '#43474e',
+  surfaceHigh: '#f4f4f3',
+  surfaceHighest: '#e8e8e7',
   outline: '#74777f',
   outlineVariant: '#c4c6cf',
-  onPrimary: '#ffffff',
+  onSurface: '#1a1c1c',
+  onSurfaceVariant: '#43474e',
+  white: '#ffffff',
   error: '#ba1a1a',
-  success: '#386a20',
-  successBg: '#c4f0c4',
+  success: '#166534',
+  successBg: '#dcfce7',
+  warning: '#854d0e',
+  warningBg: '#fef9c3',
 };
 
-/* ── Stagger hook ── */
-function useStagger(idx = 0) {
-  const ref = useRef(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduced) { el.classList.add('pp-visible'); return; }
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setTimeout(() => el.classList.add('pp-visible'), idx * 70);
-          obs.unobserve(el);
-        }
-      },
-      { threshold: 0.1 }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [idx]);
-  return ref;
-}
+const formatLargeNumber = (num) => {
+  if (!num && num !== 0) return '0';
+  if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B';
+  if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
+  if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
+  return num.toLocaleString();
+};
 
-/* ── Count Up Hook ── */
-function useCountUp(end, duration = 1400, isActive = true) {
-  const [count, setCount] = useState(0);
-  const frameRef = useRef(null);
+const formatRelativeDate = (dateStr) => {
+  if (!dateStr) return '\u2014';
+  const d = new Date(dateStr);
+  if (isNaN(d)) return '\u2014';
+  const now = new Date();
+  const diffMs = now - d;
+  const diffDays = Math.floor(diffMs / 86400000);
+  const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  if (diffDays === 0) return `Today, ${timeStr}`;
+  if (diffDays === 1) return `Yesterday, ${timeStr}`;
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
 
-  useEffect(() => {
-    if (!isActive || !end) return;
-    const startTime = performance.now();
-    const animate = (now) => {
-      const elapsed = now - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      // ease-out-expo
-      const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-      setCount(Math.floor(eased * end));
-      if (progress < 1) {
-        frameRef.current = requestAnimationFrame(animate);
-      }
-    };
-    frameRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(frameRef.current);
-  }, [end, duration, isActive]);
+const AVATAR_COLORS = ['#022448', '#795900', '#1e3a5f', '#166534', '#6b21a8', '#0e7490', '#be123c'];
+const avatarColor = (str = '') => AVATAR_COLORS[str.charCodeAt(0) % AVATAR_COLORS.length];
+const initials = (name = '') => name.split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase()).join('');
 
-  return count;
-}
+const pad2 = (value) => String(value).padStart(2, '0');
+const dateKey = (date) => `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+const monthKey = (date) => `${date.getFullYear()}-${pad2(date.getMonth() + 1)}`;
 
-/* ════════════════════════════════════════════════════════ */
-const UserDashboard = () => {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const [featured, setFeatured] = useState([]);
-  const [recentRedemptions, setRecentRedemptions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
+const parseSeriesDate = (value) => {
+  if (!value) return null;
+  if (/^\d{4}-\d{2}$/.test(String(value))) {
+    const [year, month] = String(value).split('-').map(Number);
+    return new Date(year, month - 1, 1);
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+    const [year, month, day] = String(value).split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
 
-  const sHeader = useStagger(0);
-  const sBalance = useStagger(1);
-  const sStat1 = useStagger(2);
-  const sStat2 = useStagger(3);
-  const sRedemptions = useStagger(4);
-  const sFeatHead = useStagger(5);
-  const sCarousel = useStagger(6);
+const getChartConfig = (period) => {
+  if (period === 'Year to Date') return { apiPeriod: 'monthly', days: 366, bucket: 'month' };
+  return { apiPeriod: 'daily', days: 7, bucket: 'day' };
+};
 
-  useEffect(() => {
-    Promise.all([
-      voucherAPI.getAll({ featured: 'true', limit: 4 }),
-      redemptionAPI.getMy({ limit: 3 }),
-    ]).then(([vRes, rRes]) => {
-      setFeatured(vRes.data.data || []);
-      setRecentRedemptions(rRes.data.data || []);
-    }).finally(() => setLoading(false));
-  }, []);
+const buildChartBars = (series = [], period = 'Last 7 Days') => {
+  const { bucket, days } = getChartConfig(period);
+  const counts = new Map();
 
-  const firstName = user?.name?.split(' ')[0] || 'User';
-  const rawPoints = user?.points || 0;
-  const animatedPoints = useCountUp(rawPoints, 1400, !loading);
+  series.forEach((item) => {
+    const d = parseSeriesDate(item.date || item.month || item._id || item.createdAt || item.updatedAt);
+    if (!d) return;
+    const key = bucket === 'month' ? monthKey(d) : dateKey(d);
+    counts.set(key, (counts.get(key) || 0) + (Number(item.count) || 1));
+  });
 
-  const handleCopyCode = () => {
-    const code = user?.referralCode;
-    if (code) {
-      navigator.clipboard.writeText(code).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }).catch(err => console.error("Failed to copy: ", err));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const buckets = [];
+
+  if (bucket === 'month') {
+    const start = new Date(today.getFullYear(), 0, 1);
+    const cursor = new Date(start);
+    while (cursor <= today) {
+      const key = monthKey(cursor);
+      buckets.push({
+        key,
+        label: cursor.toLocaleDateString('en-US', { month: 'short' }),
+        highlight: key === monthKey(today),
+        count: counts.get(key) || 0,
+      });
+      cursor.setMonth(cursor.getMonth() + 1);
     }
+  } else {
+    const start = new Date(today);
+    start.setDate(today.getDate() - (days - 1));
+    for (let i = 0; i < days; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const key = dateKey(d);
+      buckets.push({
+        key,
+        label: days <= 7 ? d.toLocaleDateString('en-US', { weekday: 'short' }) : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        highlight: key === dateKey(today),
+        count: counts.get(key) || 0,
+      });
+    }
+  }
+
+  const max = Math.max(...buckets.map((b) => b.count), 1);
+  return buckets.map((bar) => ({
+    ...bar,
+    height: Math.round((bar.count / max) * 85) + 5,
+  }));
+};
+
+/* ═════════════════════════════════════════════════════════════════════
+   SUB-COMPONENTS
+══════════════════════════════════════════════════════════════════════ */
+const AnimatedValue = ({ value, duration = 1400, animate = false }) => {
+  const [display, setDisplay] = useState(0);
+  const rafRef = useRef(null);
+  useEffect(() => {
+    if (!animate || value == null) { setDisplay(value || 0); return; }
+    const numVal = typeof value === 'string' ? parseInt(value.replace(/[^0-9]/g, ''), 10) : value;
+    if (isNaN(numVal)) { setDisplay(value); return; }
+    let startTs = null;
+    const step = (ts) => {
+      if (!startTs) startTs = ts;
+      const p = Math.min((ts - startTs) / duration, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      setDisplay(Math.floor(ease * numVal));
+      if (p < 1) rafRef.current = requestAnimationFrame(step);
+      else setDisplay(numVal);
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [value, animate, duration]);
+  return <>{display.toLocaleString()}</>;
+};
+
+const Skeleton = ({ style }) => (
+  <div style={{
+    ...style,
+    background: 'linear-gradient(90deg,#e8e8e7 25%,#f4f4f3 50%,#e8e8e7 75%)',
+    backgroundSize: '200% 100%',
+    animation: 'skPulse 1.5s ease-in-out infinite',
+    borderRadius: style?.borderRadius ?? 16,
+  }} />
+);
+
+const STATUS_STYLE = {
+  pending: { bg: C.warningBg, color: C.warning, label: 'Pending' },
+  success: { bg: C.successBg, color: C.success, label: 'Success' },
+  active: { bg: C.successBg, color: C.success, label: 'Active' },
+  expired: { bg: '#fee2e2', color: '#991b1b', label: 'Expired' },
+  cancelled: { bg: '#fee2e2', color: '#991b1b', label: 'Cancelled' },
+};
+
+const StatusBadge = ({ status }) => {
+  const s = STATUS_STYLE[status?.toLowerCase()] || { bg: '#f0f0f0', color: C.outline, label: status };
+  return (
+    <span style={{
+      display: 'inline-block', padding: '4px 10px', borderRadius: 6,
+      fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
+      fontFamily: 'Inter, sans-serif', backgroundColor: s.bg, color: s.color,
+    }}>
+      {s.label}
+    </span>
+  );
+};
+
+/* ═════════════════════════════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+══════════════════════════════════════════════════════════════════════ */
+const AdminDashboard = () => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [animated, setAnimated] = useState(false);
+  const [chartPeriod, setChartPeriod] = useState('Last 7 Days');
+
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [activeUsers, setActiveUsers] = useState(0);
+  const [newUsersThisWeek, setNewUsersThisWeek] = useState(0);
+  const [activeVouchers, setActiveVouchers] = useState(0);
+  const [totalVouchers, setTotalVouchers] = useState(0);
+  const [totalRedemptions, setTotalRedemptions] = useState(0);
+  const [pendingRedemptions, setPendingRedemptions] = useState(0);
+  const [totalPointsInCirculation, setTotalPointsInCirculation] = useState(0);
+  const [topVouchers, setTopVouchers] = useState([]);
+  const [recentRedemptions, setRecentRedemptions] = useState([]);
+  const [chartBars, setChartBars] = useState([]);
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const chartConfig = getChartConfig(chartPeriod);
+      const [usersRes, vouchersRes, redemptionsRes, chartRes] = await Promise.all([
+        userAPI.getAll({ limit: 1000 }),
+        voucherAPI.getAll({ limit: 1000, showExpired: 'true' }),
+        redemptionAPI.getAll({ limit: 1000 }),
+        analyticsAPI.getRedemptionsOverTime({ period: chartConfig.apiPeriod, days: chartConfig.days }).catch(() => null),
+      ]);
+
+      const users = usersRes.data?.data ?? usersRes.data?.users ?? usersRes.data ?? [];
+      setTotalUsers(users.length);
+      setActiveUsers(users.filter((u) => u.isActive).length);
+      const oneWeekAgo = Date.now() - 7 * 86400000;
+      setNewUsersThisWeek(users.filter((u) => new Date(u.createdAt) > oneWeekAgo).length);
+      setTotalPointsInCirculation(users.reduce((sum, u) => sum + (u.points || 0), 0));
+
+      const vouchers = vouchersRes.data?.data ?? vouchersRes.data?.vouchers ?? vouchersRes.data ?? [];
+      setActiveVouchers(vouchers.filter((v) => v.isActive).length);
+      setTotalVouchers(vouchers.length);
+
+      setTopVouchers([...vouchers]
+        .sort((a, b) => (b.redeemedCount || 0) - (a.redeemedCount || 0))
+        .slice(0, 5)
+        .map((v, i) => ({
+          rank: i + 1, id: v._id, title: v.title, category: v.category,
+          merchant: v.merchant, redemptions: v.redeemedCount || 0,
+          pointsCost: v.pointsCost || 0, totalLimit: v.totalLimit,
+        }))
+      );
+
+      const redemptions = redemptionsRes.data?.data ?? redemptionsRes.data?.redemptions ?? redemptionsRes.data ?? [];
+      setTotalRedemptions(redemptions.length);
+      setPendingRedemptions(redemptions.filter((r) => r.status?.toLowerCase() === 'pending').length);
+
+      const chartSeries = chartRes?.data?.data || [];
+      const fallbackSeries = redemptions.map((r) => ({ date: r.createdAt || r.updatedAt, count: 1 }));
+      setChartBars(buildChartBars(chartSeries.length ? chartSeries : fallbackSeries, chartPeriod));
+
+      setRecentRedemptions([...redemptions]
+        .sort((a, b) => new Date(b.createdAt || b.updatedAt) - new Date(a.createdAt || a.updatedAt))
+        .slice(0, 5)
+        .map((r) => ({
+          id: r._id,
+          userName: r.user?.name ?? r.userId?.name ?? 'Unknown User',
+          userEmail: r.user?.email ?? r.userId?.email ?? '',
+          userInitials: initials(r.user?.name ?? r.userId?.name),
+          userColor: avatarColor(r.user?.name ?? r.userId?.name),
+          voucherTitle: r.voucher?.title ?? r.voucherId?.title ?? 'Unknown Voucher',
+          voucherCategory: r.voucher?.category ?? r.voucherId?.category ?? '',
+          date: formatRelativeDate(r.createdAt || r.updatedAt),
+          status: r.status,
+          pointsUsed: r.pointsUsed || 0,
+        }))
+      );
+    } catch (err) {
+      console.error('AdminDashboard fetch error:', err);
+      setError('Failed to load dashboard data. Please refresh.');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setAnimated(true), 150);
+    }
+  }, [chartPeriod]);
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  const maxTopRedemptions = topVouchers[0]?.redemptions || 1;
+  const pointsGoalPct = Math.min(Math.round((totalPointsInCirculation / 5000000) * 100), 100);
+
+  const isYtd = chartPeriod === 'Year to Date';
+  const chartSubtitle = isYtd ? 'Monthly volume across all users this year' : 'Daily volume across all users this week';
+  const chartTotalLabel = isYtd ? 'Total this year' : 'Total this week';
+
+  const baseCard = {
+    backgroundColor: C.white,
+    border: `1px solid ${C.outlineVariant}`,
+    boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)',
+    transition: 'all 0.25s ease',
   };
 
+  const hoverCard = {
+    onMouseEnter: (e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(2, 36, 72, 0.08)'; },
+    onMouseLeave: (e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)'; },
+  };
+
+  const ms = (size = 24, fill = 0) => ({
+    fontFamily: "'Material Symbols Outlined'",
+    fontSize: size,
+    fontVariationSettings: `"FILL" ${fill}, "wght" 400, "GRAD" 0, "opsz" 24`,
+    lineHeight: 1,
+    display: 'inline-block',
+    verticalAlign: 'middle',
+  });
+
+  /* ════ LOADING ════ */
+  if (loading) return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <style>{`@keyframes skPulse{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
+        {[1,2,3,4].map((i) => <Skeleton key={i} style={{ height: 160 }} />)}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20 }}>
+        <Skeleton style={{ height: 360 }} />
+        <Skeleton style={{ height: 360 }} />
+      </div>
+      <Skeleton style={{ height: 320 }} />
+    </div>
+  );
+
+  /* ════ ERROR ════ */
+  if (error) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 0', gap: 16, backgroundColor: C.white, borderRadius: 16, border: `1px solid #fee2e2` }}>
+      <span className="material-symbols-outlined" style={{ fontSize: 48, color: C.error }}>error_outline</span>
+      <p style={{ fontSize: 15, color: C.onSurfaceVariant, fontFamily: 'Inter, sans-serif' }}>{error}</p>
+      <button onClick={fetchAll} style={{ padding: '10px 24px', borderRadius: 8, border: 'none', backgroundColor: C.primary, color: C.white, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+        Retry
+      </button>
+    </div>
+  );
+
+  /* ══════════════════ MAIN RENDER ════════════════ */
   return (
-    <div className="pp-dash-root">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 28, fontFamily: 'Inter, sans-serif' }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
-
-        *, *::before, *::after { box-sizing: border-box; margin: 0; }
-        .pp-dash-root {
-          font-family: 'Inter', system-ui, sans-serif;
-          color: ${C.onSurface};
-          -webkit-font-smoothing: antialiased;
-          /* FIX: Changed from overflow-x: hidden to clip. 
-             'hidden' creates a new formatting context that breaks 
-             vertical scrolling when inside a flex parent (like a dashboard layout). 
-             'clip' hides horizontal overflow without breaking the Y-axis scroll. */
-          overflow-x: clip; 
-          min-height: 0; /* FIX: Ensures it can shrink inside a flex column if needed */
-        }
-        .material-symbols-outlined {
-          font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-          user-select: none;
-        }
-
-        /* ══════════════════════════════════════════
-           KEYFRAMES & ENTRANCES
-           ══════════════════════════════════════════ */
-        .pp-anim {
-          opacity: 0;
-          transform: translateY(18px);
-          transition: opacity 0.5s cubic-bezier(0.22,1,0.36,1),
-                      transform 0.5s cubic-bezier(0.22,1,0.36,1);
-          will-change: opacity, transform;
-        }
-        .pp-anim.pp-visible { opacity: 1; transform: translateY(0); }
-
-        @keyframes pp-fillBar {
-          from { width: 0%; }
-          to { width: 65%; }
-        }
-        .pp-progress-fill {
-          animation: pp-fillBar 1.2s cubic-bezier(0.22,1,0.36,1) 0.5s both;
-        }
-
-        @keyframes pp-shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-        .pp-skeleton {
-          background: linear-gradient(90deg, ${C.surfaceContainer} 25%, ${C.surfaceContainerHighest} 50%, ${C.surfaceContainer} 75%);
-          background-size: 200% 100%;
-          animation: pp-shimmer 1.5s infinite;
-          border-radius: 8px;
-        }
-
-        @keyframes pp-pulse-gold {
-          0%   { box-shadow: 0 4px 12px rgba(212, 160, 23, 0.3), 0 0 0 0 rgba(212, 160, 23, 0.3); }
-          70%  { box-shadow: 0 4px 12px rgba(212, 160, 23, 0.3), 0 0 0 10px rgba(212, 160, 23, 0); }
-          100% { box-shadow: 0 4px 12px rgba(212, 160, 23, 0.3), 0 0 0 0 rgba(212, 160, 23, 0); }
-        }
-        @keyframes pp-wiggle {
-          0%, 100% { transform: rotate(0deg); }
-          25% { transform: rotate(-10deg); }
-          75% { transform: rotate(10deg); }
-        }
-
-        /* ══════════════════════════════════════════
-           LAYOUT
-           ══════════════════════════════════════════ */
-        .pp-dash-header { margin-bottom: 28px; }
-        .pp-dash-title {
-          font-family: 'Poppins', sans-serif;
-          font-size: 28px; font-weight: 700;
-          color: ${C.primary};
-        }
-        .pp-dash-grid {
-          display: grid;
-          grid-template-columns: repeat(12, 1fr);
-          gap: 24px;
-        }
-        .pp-dash-col-left { grid-column: span 5; display: flex; flex-direction: column; gap: 24px; }
-        .pp-dash-col-right { grid-column: span 7; }
-        .pp-featured-section { 
-          grid-column: span 12; 
-          margin-top: 8px;
-        }
-
-         @media (max-width: 1024px) {
-          .pp-dash-col-left, .pp-dash-col-right, .pp-featured-section { grid-column: span 12; }
-        }
-
-        /* ══════════════════════════════════════════
-           HOVER ANIMATIONS
-           ══════════════════════════════════════════ */
-
-        /* Balance Card Buttons */
-        .pp-btn-redeem {
-          background: ${C.brandGold}; color: '#1a1200'; border: none;
-          padding: 12px 28px; border-radius: 10px; font-weight: 700; font-size: 14px; /* Fixed missing px */
-          cursor: pointer; display: flex; align-items: center; gap: 8px;
-          font-family: 'Inter', sans-serif;
-          box-shadow: 0 4px 12px rgba(212,160,23,0.3);
-          animation: pp-pulse-gold 2.5s infinite;
-          transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
-          position: relative; overflow: hidden;
-        }
-        .pp-btn-redeem:hover {
-          background: #e8b21c; transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(212,160,23,0.4);
-        }
-        .pp-btn-redeem:active { transform: translateY(0) scale(0.97); }
-
-        .pp-btn-invite {
-          background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
-          color: #fff; font-weight: 600; font-size: 14px; cursor: pointer;
-          border-radius: 10px; padding: 12px 20px; backdrop-filter: blur(8px);
-          display: flex; align-items: center; gap: 6px;
-          font-family: 'Inter', sans-serif;
-          transition: background 0.2s, transform 0.2s, border-color 0.2s;
-        }
-        .pp-btn-invite:hover {
-          background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.3);
-          transform: translateY(-2px);
-        }
-        .pp-btn-invite:active { transform: translateY(0) scale(0.97); }
-
-        /* Stat Cards */
-        .pp-stat-card {
-          background: ${C.surfaceLowest}; border: 1px solid ${C.outlineVariant};
-          border-radius: 12px; padding: 20px;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
-          border-left: 3px solid transparent;
-          transition: transform 0.3s cubic-bezier(0.22,1,0.36,1),
-                      box-shadow 0.3s, border-color 0.3s, background 0.3s;
-        }
-        .pp-stat-card:hover {
-          transform: translateY(-3px) translateX(2px);
-          box-shadow: 0 6px 20px rgba(2,36,72,0.07);
-          background: #fff;
-          border-left-color: ${C.primary};
-        }
-        .pp-stat-card .material-symbols-outlined {
-          transition: transform 0.3s cubic-bezier(0.22,1,0.36,1), color 0.3s;
-        }
-        .pp-stat-card:hover .material-symbols-outlined {
-          color: ${C.secondary} !important; transform: scale(1.15);
-        }
-        .pp-copy-card { cursor: pointer; }
-        .pp-copy-card:hover { border-left-color: ${C.brandGold} !important; }
-
-        /* Right Column (Redemptions) */
-        .pp-redemptions-card {
-          background: ${C.surfaceLowest}; border: 1px solid ${C.outlineVariant};
-          border-radius: 12px; padding: 24px;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
-          transition: box-shadow 0.4s, border-color 0.4s;
-        }
-        @media (min-width: 1024px) {
-          .pp-redemptions-card:hover {
-            box-shadow: 0 8px 32px rgba(2,36,72,0.08);
-            border-color: #b0b5be;
-          }
-        }
-
-        .pp-list-item {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 16px; background: ${C.surface}; border-radius: 8px;
-          cursor: pointer; border: 1px solid transparent;
-          border-left: 3px solid transparent;
-          transition: background 0.2s, border-color 0.3s, transform 0.2s, box-shadow 0.2s;
-        }
-        .pp-list-item:hover {
-          background: ${C.surfaceContainer}; border-color: ${C.outlineVariant};
-          border-left-color: ${C.primary};
-          transform: translateX(4px);
-          box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-        }
-        .pp-list-item .pp-item-icon {
-          transition: transform 0.3s cubic-bezier(0.22,1,0.36,1);
-        }
-        .pp-list-item:hover .pp-item-icon { transform: scale(1.1) rotate(-5deg); }
-
-        /* Featured Vouchers Carousel */
-        .pp-carousel {
-          width: 100%;
-          display: flex;
-          gap: 24px;
-          overflow-x: auto;
-          padding-bottom: 16px;
-          scroll-snap-type: x mandatory;
-          scroll-behavior: smooth;
-        }
-        .pp-carousel::-webkit-scrollbar { height: 6px; }
-        .pp-carousel::-webkit-scrollbar-track { background: ${C.surfaceContainer}; border-radius: 10px; }
-        .pp-carousel::-webkit-scrollbar-thumb { background: ${C.outlineVariant}; border-radius: 10px; transition: background 0.2s; }
-        .pp-carousel::-webkit-scrollbar-thumb:hover { background: ${C.outline}; }
-
-        .pp-voucher-card {
-          min-width: 320px; height: 224px;
-          background: linear-gradient(135deg, ${C.primary} 0%, ${C.primaryContainer} 100%);
-          border-radius: 12px; padding: 24px; color: #fff;
-          display: flex; flex-direction: column; justify-content: space-between;
-          cursor: pointer; position: relative; overflow: hidden;
-          scroll-snap-align: start; flex-shrink: 0;
-          box-shadow: 0px 8px 24px rgba(2, 36, 72, 0.15);
-          border: 1px solid rgba(255,255,255,0.05);
-          transition: transform 0.3s cubic-bezier(0.22,1,0.36,1), box-shadow 0.3s;
-        }
-        .pp-voucher-card:hover {
-          transform: translateY(-6px);
-          box-shadow: 0px 16px 40px rgba(2, 36, 72, 0.25);
-        }
-        .pp-voucher-card .pp-claim-btn {
-          background: #fff; color: ${C.primary}; border: none;
-          padding: 8px 16px; border-radius: 8px; font-weight: 700; cursor: pointer;
-          font-family: 'Inter', sans-serif;
-          transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
-        }
-        .pp-voucher-card:hover .pp-claim-btn {
-          background: ${C.brandGold}; color: '#1a1200';
-          transform: scale(1.05);
-          box-shadow: 0 4px 12px rgba(212,160,23,0.3);
-        }
-
-        /* Misc Link Hover */
-        .pp-text-btn {
-          background: none; border: none; color: ${C.primary};
-          font-weight: 700; font-size: 14px; cursor: pointer; padding: 0;
-          position: relative; font-family: 'Inter', sans-serif;
-          transition: color 0.2s;
-        }
-        .pp-text-btn::after {
-          content: ''; position: absolute;
-          left: 0; bottom: -2px; width: 0; height: 1.5px;
-          background: ${C.primary};
-          transition: width 0.3s cubic-bezier(0.22,1,0.36,1);
-        }
-        .pp-text-btn:hover { color: ${C.primaryHover}; }
-        .pp-text-btn:hover::after { width: 100%; }
-
-        /* ══════════════════════════════════════════
-           COMPONENT SPECIFICS
-           ══════════════════════════════════════════ */
-        
-        /* Balance Card */
-        .pp-balance-card {
-          position: relative; overflow: hidden; padding: 32px 28px; border-radius: 16px;
-          background: linear-gradient(135deg, ${C.primary} 0%, ${C.primaryContainer} 60%, #2a4f7a 100%);
-          box-shadow: 0 12px 32px rgba(2, 36, 72, 0.25);
-          border: 1px solid rgba(255,255,255,0.08);
-        }
-        .pp-balance-glow-1 {
-          position: absolute; top: -30px; right: -30px; width: 140px; height: 140px;
-          background: rgba(212,160,23,0.12); border-radius: 50%; filter: blur(40px);
-        }
-        .pp-balance-glow-2 {
-          position: absolute; bottom: -20px; left: -20px; width: 100px; height: 100px;
-          background: rgba(255,255,255,0.06); border-radius: 50%; filter: blur(30px);
-        }
-        .pp-points-val {
-          font-family: 'Poppins', sans-serif;
-          font-size: clamp(36px, 5vw, 52px); font-weight: 800;
-          color: ${C.onPrimary}; line-height: 1; letter-spacing: -0.02em;
-          display: block; margin-bottom: 4px;
-        }
-        .pp-progress-track {
-          width: 100%; height: 8px; background: rgba(255,255,255,0.1);
-          border-radius: 999; overflow: hidden;
-        }
-        .pp-progress-fill {
-          height: 100%; width: 65%;
-          background: linear-gradient(90deg, ${C.brandGold}, #f0c040);
-          border-radius: 999; box-shadow: 0 0 12px rgba(212,160,23,0.4);
-          will-change: width;
-        }
-        .pp-section-title {
-          font-family: 'Poppins', sans-serif;
-          font-size: 20px; font-weight: 600; color: ${C.primary};
-        }
-
-        /* Empty State */
-        .pp-empty-state {
-          text-align: center; padding: 48px 16px;
-          border: 2px dashed ${C.outlineVariant}; border-radius: 12px;
-          transition: border-color 0.3s, background 0.3s;
-        }
-        .pp-empty-state:hover {
-          border-color: ${C.outline}; background: ${C.surfaceLow};
-        }
-        .pp-empty-btn {
-          background: ${C.primary}; color: #fff; border: none;
-          padding: 10px 20px; border-radius: 8px; font-weight: 600;
-          cursor: pointer; font-family: 'Inter', sans-serif;
-          transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
-        }
-        .pp-empty-btn:hover {
-          background: ${C.primaryHover}; transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(2,36,72,0.2);
-        }
-
-        /* ══════════════════════════════════════════
-           REDUCED MOTION
-           ══════════════════════════════════════════ */
-        @media (prefers-reduced-motion: reduce) {
-          .pp-anim { opacity: 1 !important; transform: none !important; transition: none !important; }
-          .pp-progress-fill { animation: none !important; width: 65% !important; }
-          .pp-skeleton { animation: none !important; background: ${C.surfaceContainer} !important; }
-          .pp-btn-redeem { animation: none !important; }
-          *, *::before, *::after { transition-duration: 0.01ms !important; }
-        }
+        @keyframes skPulse{0%{background-position:200% 0}100%{background-position:-200% 0}}
+        .pp-chart-tooltip { opacity: 0; transition: opacity 0.2s ease; pointer-events: none; }
+        .pp-bar-wrap:hover .pp-chart-tooltip { opacity: 1; }
+        .pp-bar-fill { transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease; }
       `}</style>
 
-      {/* ── Header ── */}
-      <div className="pp-dash-header pp-anim" ref={sHeader}>
-        <h1 className="pp-dash-title">Welcome back, {firstName} 👋</h1>
+      {/* Breadcrumb */}
+      <nav style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 13, fontWeight: 500, color: C.onSurfaceVariant }}>
+        <button
+          onClick={() => navigate('/dashboard')}
+          style={{ background: 'none', border: 'none', color: C.primary, fontWeight: 600, cursor: 'pointer', padding: 0, fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'Inter, sans-serif', transition: 'color 0.15s' }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = '#1e3a5f'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = C.primary; }}
+        >
+          <span style={ms(16, 0)}>home</span>
+          Home
+        </button>
+        <span style={{ color: C.outlineVariant }}>/</span>
+        <span style={{ color: C.onSurface, fontWeight: 600 }}>Dashboard</span>
+      </nav>
+
+      {/* Header */}
+      <div>
+        <h1 style={{ fontSize: 26, fontFamily: 'Poppins, sans-serif', fontWeight: 700, color: C.primary, margin: 0 }}>
+          Dashboard
+        </h1>
+        <p style={{ fontSize: 14, color: C.outline, margin: '4px 0 0' }}>
+          Overview of admin metrics and recent platform activity.
+        </p>
       </div>
 
-      {/* ── Main Grid ── */}
-      <div className="pp-dash-grid">
-
-        {/* ═══ LEFT COLUMN ═══ */}
-        <div className="pp-dash-col-left">
-
-          {/* Points Balance Card */}
-          <div className="pp-balance-card pp-anim" ref={sBalance}>
-            <div className="pp-balance-glow-1" />
-            <div className="pp-balance-glow-2" />
-
-            <div style={{ position: 'relative', zIndex: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(212,160,23,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 20, fontVariationSettings: "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24", color: C.brandGold }}>account_balance_wallet</span>
-                </div>
-                <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                  Wallet Balance
-                </span>
-              </div>
-
-              <span className="pp-points-val">{animatedPoints.toLocaleString()}</span>
-              <p style={{ fontWeight: 500, color: 'rgba(255,255,255,0.5)', margin: '0 0 32px', fontSize: 14, letterSpacing: '0.02em' }}>
-                Available Points
-              </p>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <button onClick={() => navigate('/vouchers')} className="pp-btn-redeem">
-                  <span className="material-symbols-outlined" style={{ fontSize: 18, fontVariationSettings: "'FILL' 1" }}>redeem</span>
-                  Redeem Now
-                </button>
-                <button onClick={() => navigate('/referral')} className="pp-btn-invite">
-                  <span className="material-symbols-outlined" style={{ fontSize: 18 }}>group_add</span>
-                  Invite Friends
-                </button>
-              </div>
+      {/* Stat Cards */}
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
+        {/* Total Users */}
+        <div style={{ ...baseCard, borderRadius: 16, padding: 24, cursor: 'default' }} {...hoverCard}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div style={{ padding: 10, borderRadius: 12, backgroundColor: C.primarySoft, color: C.primary, display: 'flex' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>group</span>
             </div>
-
-            <div style={{ marginTop: 28, position: 'relative', zIndex: 10, paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 10 }}>
-                <span style={{ color: 'rgba(255,255,255,0.5)' }}>Progress to Gold Tier</span>
-                <span style={{ color: C.brandGold, fontWeight: 700 }}>65%</span>
-              </div>
-              <div className="pp-progress-track">
-                <div className="pp-progress-fill" />
-              </div>
-            </div>
+            <span style={{ color: C.success, fontSize: 11, fontWeight: 600, backgroundColor: C.successBg, padding: '4px 8px', borderRadius: 6 }}>
+              +{newUsersThisWeek} this week
+            </span>
           </div>
-
-          {/* Quick Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div className="pp-stat-card pp-anim" ref={sStat1}>
-              <span className="material-symbols-outlined" style={{ fontSize: 24, color: C.primary, marginBottom: 8, display: 'block' }}>confirmation_number</span>
-              <p style={{ fontSize: 12, color: C.onSurfaceVariant }}>Total Redemptions</p>
-              <p style={{ fontFamily: "'Poppins', sans-serif", fontSize: 20, fontWeight: 600, color: C.primary, margin: '4px 0 0' }}>
-                {recentRedemptions.length || 0}
-              </p>
-            </div>
-            <div onClick={handleCopyCode} className="pp-stat-card pp-copy-card pp-anim" ref={sStat2}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 24, color: copied ? C.success : C.primary, display: 'block' }}>
-                  {copied ? 'check_circle' : 'share'}
-                </span>
-                <span style={{ fontSize: 10, color: copied ? C.success : C.onSurfaceVariant, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', transition: 'color 0.2s' }}>
-                  {copied ? 'Copied!' : 'Click to copy'}
-                </span>
-              </div>
-              <p style={{ fontSize: 12, color: C.onSurfaceVariant }}>Referral Code</p>
-              <p style={{ fontFamily: "'Poppins', sans-serif", fontSize: 20, fontWeight: 600, color: C.primary, margin: '4px 0 0' }}>
-                {user?.referralCode || '—'}
-              </p>
-            </div>
-          </div>
+          <p style={{ fontSize: 13, fontWeight: 500, color: C.onSurfaceVariant, marginBottom: 4 }}>Total Users</p>
+          <h3 style={{ fontSize: 36, fontFamily: 'Poppins, sans-serif', fontWeight: 700, color: C.primary, lineHeight: 1, margin: 0 }}>
+            <AnimatedValue value={totalUsers} animate={animated} />
+          </h3>
+          <p style={{ fontSize: 12, color: C.outline, marginTop: 8 }}>{activeUsers.toLocaleString()} active currently</p>
         </div>
 
-        {/* ═══ RIGHT COLUMN ═══ */}
-        <div className="pp-dash-col-right pp-redemptions-card pp-anim" ref={sRedemptions}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-            <h4 className="pp-section-title">Recent Redemptions</h4>
-            <button onClick={() => navigate('/my-redemptions')} className="pp-text-btn">See All</button>
+        {/* Active Vouchers */}
+        <div style={{ ...baseCard, borderRadius: 16, padding: 24, cursor: 'default' }} {...hoverCard}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div style={{ padding: 10, borderRadius: 12, backgroundColor: '#ffdfa0', color: '#5c4300', display: 'flex' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 22, fontVariationSettings: "'FILL' 1" }}>confirmation_number</span>
+            </div>
+            <span style={{ color: C.goldDark, fontSize: 11, fontWeight: 600, backgroundColor: C.goldSoft, padding: '4px 8px', borderRadius: 6 }}>
+              {totalVouchers} total
+            </span>
           </div>
-
-          {loading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {[1, 2, 3].map(i => <div key={i} className="pp-skeleton" style={{ height: 72 }} />)}
-            </div>
-          ) : recentRedemptions.length === 0 ? (
-            <div className="pp-empty-state">
-              <span className="material-symbols-outlined" style={{ fontSize: 48, color: C.outline }}>inbox</span>
-              <h5 style={{ fontFamily: "'Poppins', sans-serif", margin: '12px 0 4px', color: C.onSurface }}>No redemptions yet</h5>
-              <p style={{ fontSize: 14, color: C.onSurfaceVariant, margin: '0 0 16px' }}>Browse vouchers and redeem your first one to see it here.</p>
-              <button onClick={() => navigate('/vouchers')} className="pp-empty-btn">Browse Vouchers</button>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {recentRedemptions.map((r) => (
-                <div
-                  key={r._id}
-                  onClick={() => navigate('/my-redemptions')}
-                  className="pp-list-item"
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <div className="pp-item-icon" style={{ width: 48, height: 48, borderRadius: '50%', background: `${C.primary}10`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: 24, color: C.primary }}>confirmation_number</span>
-                    </div>
-                    <div>
-                      <p style={{ fontWeight: 700, color: C.primary, margin: 0, fontSize: 15 }}>{r.voucher?.title || 'Unknown Voucher'}</p>
-                      <p style={{ fontSize: 12, color: C.onSurfaceVariant, margin: '4px 0 0', fontFamily: 'monospace' }}>Code: {r.redemptionCode}</p>
-                    </div>
-                  </div>
-                  <span style={{ background: C.successBg, color: C.success, fontSize: 10, fontWeight: 700, padding: '4px 8px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>Success</span>
-                </div>
-              ))}
-            </div>
-          )}
+          <p style={{ fontSize: 13, fontWeight: 500, color: C.onSurfaceVariant, marginBottom: 4 }}>Active Vouchers</p>
+          <h3 style={{ fontSize: 36, fontFamily: 'Poppins, sans-serif', fontWeight: 700, color: C.primary, lineHeight: 1, margin: 0 }}>
+            <AnimatedValue value={activeVouchers} animate={animated} />
+          </h3>
+          <p style={{ fontSize: 12, color: C.outline, marginTop: 8 }}>{(totalVouchers - activeVouchers)} inactive/expired</p>
         </div>
 
-        {/* ═ BOTTOM: Featured Vouchers ═ */}
-        <div className="pp-featured-section">
-          <div className="pp-anim" ref={sFeatHead} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
+        {/* Total Redemptions */}
+        <div style={{ ...baseCard, borderRadius: 16, padding: 24, cursor: 'default' }} {...hoverCard}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div style={{ padding: 10, borderRadius: 12, backgroundColor: '#e0e7ff', color: C.primaryContainer, display: 'flex' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>payments</span>
+            </div>
+            {pendingRedemptions > 0 && (
+              <span style={{ color: C.warning, fontSize: 11, fontWeight: 600, backgroundColor: C.warningBg, padding: '4px 8px', borderRadius: 6 }}>
+                {pendingRedemptions} pending
+              </span>
+            )}
+          </div>
+          <p style={{ fontSize: 13, fontWeight: 500, color: C.onSurfaceVariant, marginBottom: 4 }}>Total Redemptions</p>
+          <h3 style={{ fontSize: 36, fontFamily: 'Poppins, sans-serif', fontWeight: 700, color: C.primary, lineHeight: 1, margin: 0 }}>
+            <AnimatedValue value={totalRedemptions} animate={animated} />
+          </h3>
+          <p style={{ fontSize: 12, color: C.outline, marginTop: 8 }}>Across all users</p>
+        </div>
+
+        {/* Points in Circulation */}
+        <div style={{ ...baseCard, borderRadius: 16, padding: 24, cursor: 'default', position: 'relative', overflow: 'hidden' }} {...hoverCard}>
+          <div style={{ position: 'absolute', top: -20, right: -20, opacity: 0.04, pointerEvents: 'none' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 140, fontVariationSettings: "'wght' 700" }}>monetization_on</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, position: 'relative', zIndex: 1 }}>
+            <div style={{ padding: 10, borderRadius: 12, backgroundColor: C.primaryContainer, color: C.white, display: 'flex' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>stars</span>
+            </div>
+            <span style={{ color: C.goldDark, fontSize: 11, fontWeight: 700 }}>{pointsGoalPct}% of goal</span>
+          </div>
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <p style={{ fontSize: 13, fontWeight: 500, color: C.onSurfaceVariant, marginBottom: 4 }}>Points in Circulation</p>
+            <h3 style={{ fontSize: 36, fontFamily: 'Poppins, sans-serif', fontWeight: 700, color: C.primary, lineHeight: 1, margin: 0 }}>
+              {formatLargeNumber(totalPointsInCirculation)}
+            </h3>
+          </div>
+          <div style={{ width: '100%', height: 6, borderRadius: 99, backgroundColor: C.surfaceHighest, marginTop: 16, position: 'relative', zIndex: 1, overflow: 'hidden' }}>
+            <div style={{ width: `${pointsGoalPct}%`, height: '100%', borderRadius: 99, backgroundColor: C.gold, transition: 'width 1.2s cubic-bezier(0.4, 0, 0.2, 1)' }} />
+          </div>
+        </div>
+      </section>
+
+      {/* Chart + Top Vouchers */}
+      <section style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20, alignItems: 'stretch' }}>
+        {/* Redemption Trends Chart */}
+        <div style={{ ...baseCard, borderRadius: 16, padding: 28, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32, flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <h4 className="pp-section-title">Featured Vouchers</h4>
-              <p style={{ color: C.onSurfaceVariant, fontSize: 14, margin: '4px 0 0' }}>Hand-picked rewards available for instant redemption.</p>
+              <h3 style={{ fontSize: 18, fontFamily: 'Poppins, sans-serif', fontWeight: 700, color: C.primary, margin: 0 }}>
+                Redemption Trends
+              </h3>
+              <p style={{ fontSize: 13, color: C.outline, margin: '4px 0 0' }}>
+                {chartSubtitle}
+              </p>
             </div>
-            <button onClick={() => navigate('/vouchers')} className="pp-text-btn">View All</button>
+            <select
+              value={chartPeriod}
+              onChange={(e) => setChartPeriod(e.target.value)}
+              style={{
+                backgroundColor: C.surfaceHigh, border: `1px solid ${C.outlineVariant}`, borderRadius: 8,
+                fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif', padding: '8px 16px',
+                cursor: 'pointer', color: C.onSurface, outline: 'none'
+              }}
+            >
+              <option>Last 7 Days</option>
+              <option>Year to Date</option>
+            </select>
           </div>
 
-          {loading ? (
-            <div className="pp-carousel" style={{ overflowX: 'hidden' }}>
-              {[1, 2, 3, 4].map(i => <div key={i} className="pp-skeleton" style={{ minWidth: 320, height: 224, borderRadius: 12 }} />)}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', position: 'relative', minWidth: 0 }}>
+            <div style={{ position: 'absolute', inset: '0 0 36px 0', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none', zIndex: 0 }}>
+              {[1,2,3,4].map(i => (
+                <div key={i} style={{ width: '100%', height: 1, backgroundColor: C.surfaceHigh }} />
+              ))}
             </div>
-          ) : featured.length === 0 ? (
-            <div className="pp-empty-state pp-anim pp-visible" style={{ background: C.surfaceLowest, border: `2px dashed ${C.outlineVariant}` }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 48, color: C.outline }}>ticket</span>
-              <h5 style={{ fontFamily: "'Poppins', sans-serif", margin: '12px 0 4px', color: C.onSurface }}>No featured vouchers right now</h5>
-              <p style={{ fontSize: 14, color: C.onSurfaceVariant, margin: '0 0 16px' }}>Check back soon or browse the full catalog.</p>
-              <button onClick={() => navigate('/vouchers')} className="pp-empty-btn">Browse All Vouchers</button>
-            </div>
-          ) : (
-            /* Removed inline styles and applied them strictly in CSS to fix overflow issues */
-            <div className="pp-carousel pp-anim" ref={sCarousel}>
-              {featured.map((v) => (
-                <div key={v._id} onClick={() => navigate('/vouchers')} className="pp-voucher-card">
-                  <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, background: 'rgba(255,255,255,0.1)', borderRadius: '50%', filter: 'blur(40px)' }} />
 
-                  <div style={{ position: 'relative', zIndex: 10 }}>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-                      <div style={{ background: C.brandGold, color: '#fff', padding: '4px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
-                        {formatDiscount(v.discountType, v.discountValue)}
-                      </div>
-                    </div>
-                    <h5 style={{ fontFamily: "'Poppins', sans-serif", fontSize: 18, fontWeight: 600, margin: '0 0 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: 4 }}>
-                      {v.title}
-                    </h5>
-                    <p style={{ margin: 0, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.7, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {v.merchant}
-                    </p>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: isYtd ? 8 : 12, height: 240, position: 'relative', zIndex: 1, overflowX: 'auto', paddingBottom: 4, minWidth: isYtd ? chartBars.length * 48 : '100%' }}>
+              {chartBars.map((bar, i) => (
+                <div key={i} className="pp-bar-wrap" title={`${bar.label}: ${bar.count}`} style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', position: 'relative', minWidth: isYtd ? 40 : 'auto' }}>
+                  <div className="pp-chart-tooltip" style={{
+                    position: 'absolute', top: -32, left: '50%', transform: 'translateX(-50%)',
+                    backgroundColor: C.onSurface, color: C.white, padding: '4px 8px', borderRadius: 6,
+                    fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                  }}>
+                    {bar.count}
                   </div>
-
-                  <div style={{ borderTop: '1px dashed rgba(255,255,255,0.3)', paddingTop: 16, position: 'relative', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <p style={{ margin: 0, fontSize: 12, opacity: 0.7 }}>Redemption Cost</p>
-                      <p style={{ fontFamily: "'Poppins', sans-serif", margin: 0, fontSize: 20, fontWeight: 700 }}>{v.pointsCost || 100} pts</p>
-                    </div>
-                    <button className="pp-claim-btn" onClick={(e) => e.stopPropagation()}>Claim</button>
-                  </div>
+                  <div
+                    className="pp-bar-fill"
+                    style={{
+                      width: '100%', maxWidth: 48, height: `${bar.height}%`,
+                      backgroundColor: bar.highlight ? C.primary : C.surfaceHighest,
+                      borderRadius: '6px 6px 2px 2px', cursor: 'pointer',
+                      boxShadow: bar.highlight ? '0 4px 12px rgba(2, 36, 72, 0.2)' : 'none',
+                    }}
+                    onMouseEnter={(e) => {
+                      if(!bar.highlight) e.currentTarget.style.backgroundColor = C.outline;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = bar.highlight ? C.primary : C.surfaceHighest;
+                    }}
+                  />
+                  <span style={{
+                    fontSize: isYtd ? 10 : 12, fontWeight: bar.highlight ? 700 : 500,
+                      marginTop: 12, color: bar.highlight ? C.onSurface : C.outline,
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {bar.label}
+                  </span>
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Legend Footer */}
+          <div style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 20, paddingTop: 16, borderTop: `1px solid ${C.surfaceHigh}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: C.primary }} />
+              <span style={{ fontSize: 12, color: C.outline }}>{isYtd ? 'Current Month' : 'Today'}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: C.surfaceHighest, border: '1px solid #d0d0d0' }} />
+              <span style={{ fontSize: 12, color: C.outline }}>{isYtd ? 'Other Months' : 'Other Days'}</span>
+            </div>
+            <div style={{ marginLeft: 'auto', fontSize: 12, color: C.outline }}>
+              {chartTotalLabel}: <strong style={{ color: C.primary }}>{chartBars.reduce((s, b) => s + b.count, 0).toLocaleString()}</strong>
+            </div>
+          </div>
+        </div>
+
+
+        {/* Top Redeemed Vouchers */}
+        <div style={{ ...baseCard, borderRadius: 16, padding: 24, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+            <div>
+              <h3 style={{ fontSize: 16, fontFamily: 'Poppins, sans-serif', fontWeight: 700, color: C.primary, margin: 0 }}>Top Vouchers</h3>
+              <p style={{ fontSize: 12, color: C.outline, margin: '4px 0 0' }}>Most redeemed all time</p>
+            </div>
+            <button onClick={() => navigate('/admin/vouchers')} style={{ fontSize: 12, fontWeight: 600, color: C.primary, backgroundColor: C.primarySoft, border: 'none', padding: '6px 12px', borderRadius: 8, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+              View All
+            </button>
+          </div>
+
+          {topVouchers.length === 0 ? (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: C.outline }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 40, marginBottom: 8, opacity: 0.5 }}>local_offer</span>
+              <p style={{ fontSize: 13 }}>No data yet</p>
+            </div>
+          ) : (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {topVouchers.map((v) => (
+                <div key={v.id} onClick={() => navigate(`/admin/vouchers/${v.id}/edit`)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 10, backgroundColor: C.surface, cursor: 'pointer', transition: 'background-color 0.2s' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = C.surfaceHigh}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = C.surface}
+                >
+                  <div style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: v.rank === 1 ? C.gold : v.rank === 2 ? C.surfaceHighest : '#f4f4f3', color: v.rank <= 2 ? '#5c4300' : C.outline, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0, boxShadow: v.rank === 1 ? '0 2px 8px rgba(255, 198, 65, 0.3)' : 'none' }}>
+                    {v.rank}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: C.onSurface, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.title}</p>
+                    <p style={{ fontSize: 11, color: C.outline, margin: '2px 0 0' }}>{v.merchant || v.category}</p>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: C.primary, margin: 0 }}>{v.redemptions.toLocaleString()}</p>
+                  </div>
+                </div>
+              ))}
+
+
+              {/* Proportion Bars */}
+              <div style={{ marginTop: 'auto', paddingTop: 16, borderTop: `1px solid ${C.surfaceHigh}` }}>
+                {topVouchers.map((v) => {
+                  const pct = Math.round((v.redemptions / maxTopRedemptions) * 100);
+                  return (
+                    <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                      <span style={{ fontSize: 10, color: C.outline, width: 14, textAlign: 'right', flexShrink: 0 }}>{v.rank}</span>
+                      <div style={{ flex: 1, height: 6, borderRadius: 99, backgroundColor: C.surfaceHigh, overflow: 'hidden' }}>
+                        <div style={{ width: `${pct}%`, height: '100%', borderRadius: 99, backgroundColor: v.rank === 1 ? C.gold : C.primarySoft, transition: 'width 1s ease' }} />
+                      </div>
+                      <span style={{ fontSize: 11, color: C.onSurfaceVariant, width: 32, textAlign: 'right', flexShrink: 0, fontWeight: 600 }}>{pct}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
-      </div>
+      </section>
+
+      {/* Recent Redemptions Table */}
+      <section style={{ ...baseCard, borderRadius: 16, overflow: 'hidden' }}>
+        <div style={{ padding: '24px 28px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${C.surfaceHigh}` }}>
+          <div>
+            <h3 style={{ fontSize: 18, fontFamily: 'Poppins, sans-serif', fontWeight: 700, color: C.primary, margin: 0 }}>Recent Redemptions</h3>
+            <p style={{ fontSize: 13, color: C.outline, margin: '4px 0 0' }}>Latest voucher redemptions across all users</p>
+          </div>
+          <button onClick={() => navigate('/admin/redemptions')} style={{ fontSize: 13, fontWeight: 600, color: C.primary, backgroundColor: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', padding: '8px 0', display: 'flex', alignItems: 'center', gap: 4, transition: 'opacity 0.2s' }}
+            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
+            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+          >
+            View All <span className="material-symbols-outlined" style={{ fontSize: 18 }}>arrow_forward</span>
+          </button>
+        </div>
+
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
+            <thead>
+              <tr style={{ backgroundColor: C.surface }}>
+                {['User', 'Voucher', 'Date', 'Status', 'Points Used'].map((h) => (
+                  <th key={h} style={{ padding: '14px 28px', fontSize: 11, fontWeight: 700, color: C.outline, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', borderBottom: `1px solid ${C.surfaceHigh}` }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {recentRedemptions.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: 'center', padding: '60px 20px', color: C.outline }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 40, display: 'block', marginBottom: 8, opacity: 0.4 }}>receipt_long</span>
+                    No redemptions recorded yet
+                  </td>
+                </tr>
+              ) : (
+                recentRedemptions.map((r, i) => (
+                  <tr
+                    key={r.id}
+                    style={{ borderBottom: i < recentRedemptions.length - 1 ? `1px solid ${C.surfaceHigh}` : 'none', transition: 'background-color 0.2s' }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = C.surface}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <td style={{ padding: '16px 28px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: r.userColor, color: C.white, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+                          {r.userInitials}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: C.onSurface, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.userName}</p>
+                          <p style={{ margin: '2px 0 0', fontSize: 11, color: C.outline, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.userEmail}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ padding: '16px 28px' }}>
+                      <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: C.onSurfaceVariant, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: 16 }}>{r.voucherTitle}</p>
+                      <p style={{ margin: '2px 0 0', fontSize: 11, color: C.outline }}>{r.voucherCategory}</p>
+                    </td>
+                    <td style={{ padding: '16px 28px', fontSize: 13, color: C.outline }}>{r.date}</td>
+                    <td style={{ padding: '16px 28px' }}><StatusBadge status={r.status} /></td>
+                    <td style={{ padding: '16px 28px', textAlign: 'right', fontSize: 14, fontWeight: 700, color: C.primary, fontFamily: 'Poppins, sans-serif' }}>
+                      {r.pointsUsed > 0 ? `-${r.pointsUsed.toLocaleString()} pts` : '\u2014'}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 };
 
-export default UserDashboard;
+export default AdminDashboard;
+
+
