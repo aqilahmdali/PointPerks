@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { redemptionAPI } from '../../services/api';
-import { formatDate, formatDiscount, downloadPDF } from '../../utils/helpers';
+import { formatDate, formatDiscount } from '../../utils/helpers';
 import { UserBreadcrumb } from '../../components/layout/UserPageChrome';
 
 /* ── Design tokens ─────────────────────────────────────────────── */
@@ -36,7 +36,6 @@ const PDFVoucherPage = () => {
   const navigate = useNavigate();
   const [redemption, setRedemption] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     redemptionAPI.getOne(id)
@@ -47,20 +46,8 @@ const PDFVoucherPage = () => {
 
   const getPdfFilename = () => `voucher-${redemption?.redemptionCode || id}.pdf`;
 
-  const handleDownloadPDF = async () => {
-    setDownloading(true);
-    try {
-      const res = await redemptionAPI.downloadPDF(id);
-      const pdfBlob = res.data instanceof Blob
-        ? res.data
-        : new Blob([res.data], { type: 'application/pdf' });
-      downloadPDF(pdfBlob, getPdfFilename());
-      toast.success('PDF downloaded successfully!');
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to generate PDF');
-    } finally {
-      setDownloading(false);
-    }
+  const handleDownloadPDF = () => {
+    window.print();
   };
 
   const ms = (size = 24, fill = 0) => ({
@@ -113,15 +100,15 @@ const PDFVoucherPage = () => {
   const statusInfo = getStatusStyle(redemption.status);
 
   return (
-    <div style={{ 
-      background: C.surfaceLow, 
-      minHeight: '100vh', 
-      display: 'flex', 
+    <div className="pp-pdf-outer" style={{
+      background: C.surfaceLow,
+      minHeight: '100vh',
+      display: 'flex',
       flexDirection: 'column',
-      alignItems: 'center', 
-      padding: '48px 24px', 
-      fontFamily: "'Inter', sans-serif", 
-      color: C.onSurface, 
+      alignItems: 'center',
+      padding: '48px 24px',
+      fontFamily: "'Inter', sans-serif",
+      color: C.onSurface,
     }}>
 
       {/* ═══ Top Action Row: Breadcrumb & Buttons ═══ */}
@@ -171,37 +158,26 @@ const PDFVoucherPage = () => {
           {/* Download PDF Button */}
           <button
             onClick={handleDownloadPDF}
-            disabled={downloading}
             className="pp-btn-primary"
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 8,
               padding: '8px 20px',
-              background: downloading ? C.primaryContainer : C.primary,
+              background: C.primary,
               color: C.onPrimary,
               borderRadius: 10,
               border: 'none',
-              cursor: downloading ? 'wait' : 'pointer',
+              cursor: 'pointer',
               fontFamily: "'Inter', sans-serif",
               fontWeight: 600,
               fontSize: 13,
               transition: 'all 0.2s ease',
               boxShadow: '0px 2px 8px rgba(2, 36, 72, 0.15)',
-              opacity: downloading ? 0.8 : 1,
             }}
           >
-            {downloading ? (
-              <>
-                <span className="pp-spinner" style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block' }} />
-                <span>Generating...</span>
-              </>
-            ) : (
-              <>
-                <span style={ms(18, 1)}>picture_as_pdf</span>
-                <span>Download PDF</span>
-              </>
-            )}
+            <span style={ms(18, 1)}>picture_as_pdf</span>
+            <span>Download PDF</span>
           </button>
         </div>
       </div>
@@ -758,45 +734,48 @@ const PDFVoucherPage = () => {
         @media print {
           @page {
             size: A4 portrait;
-            margin: 12mm;
+            margin: 0;
           }
 
-          html, body {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+
+          /* Hide everything on the page */
+          body * {
+            visibility: hidden !important;
+          }
+
+          /* Show only the voucher card and all its children */
+          .pp-voucher-container,
+          .pp-voucher-container * {
+            visibility: visible !important;
+          }
+
+          /* Pin the voucher to fill the page */
+          .pp-voucher-container {
+            position: fixed !important;
+            inset: 0 !important;
             width: 100% !important;
-            min-height: 100% !important;
+            max-width: 100% !important;
+            height: 100% !important;
             margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            color-adjust: exact !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            overflow: hidden !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
 
-          .pp-no-print { display: none !important; }
-          
-          .pp-voucher-container {
-            width: 100% !important;
-            max-width: 100% !important;
-            box-shadow: none !important;
-            border: none !important;
-            border-radius: 0 !important;
-            page-break-inside: avoid !important;
-          }
-
-          .pp-stub { 
-            background: ${C.primaryContainer} !important; 
-          }
-          .pp-value-side { 
-            background: ${C.surfaceLowest} !important; 
+          /* Preserve gradient background on left stub */
+          .pp-stub {
+            background: linear-gradient(180deg, ${C.primary} 0%, ${C.primaryContainer} 100%) !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
           .pp-perforation-line,
           .pp-cutout-right {
             display: block !important;
-          }
-
-          .pp-voucher-container * {
-            box-shadow: none !important;
           }
         }
       `}</style>

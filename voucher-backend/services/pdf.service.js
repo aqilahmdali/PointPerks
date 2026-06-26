@@ -175,7 +175,8 @@ const generateVoucherPDF = (redemption, user, voucher) => {
       // Footer: Verification Hash
       const footerY = gridY + gridHeight + 15;
       doc.fillColor(C.onSurfaceVariant).font('Helvetica').fontSize(8).text('Verification Hash', rightX + headerPadding, footerY);
-      doc.font('Courier').fontSize(7).fillColor(C.outlineVariant).text(`SHA256: ${redemption._id?.slice(0, 8)}...${redemption._id?.slice(-5)}`, rightX + headerPadding, footerY + 12);
+      const idStr = redemption._id?.toString() || '';
+      doc.font('Courier').fontSize(7).fillColor(C.outlineVariant).text(`SHA256: ${idStr.slice(0, 8)}...${idStr.slice(-5)}`, rightX + headerPadding, footerY + 12);
 
       // Footer: Powered by PointPerks
       doc.fillColor(C.onSurfaceVariant).font('Helvetica').fontSize(8).text('Powered by PointPerks', rightX + valueWidth - headerPadding, footerY, { align: 'right' });
