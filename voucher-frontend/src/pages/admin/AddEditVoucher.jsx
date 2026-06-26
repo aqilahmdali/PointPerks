@@ -248,7 +248,7 @@ const AddEditVoucher = () => {
         <div style={{ borderRadius: 12, padding: '16px 18px', display: 'flex', gap: 12, alignItems: 'flex-start', backgroundColor: 'rgba(186,26,26,0.05)', border: '1px solid rgba(186,26,26,0.15)' }}>
           <span className="material-symbols-outlined" style={{ color: '#ba1a1a', fontSize: 18, flexShrink: 0, marginTop: 1 }}>warning</span>
           <p style={{ fontSize: 12, color: '#7a1010', lineHeight: 1.6, fontFamily: 'Inter, sans-serif', fontWeight: 500, margin: 0 }}>
-            Low stock limit set. Vouchers with fewer than 100 units may sell out quickly during campaigns.
+            Low stock limit set. Vouchers with less than 10% units may sell out quickly during campaigns.
           </p>
         </div>
       )}
